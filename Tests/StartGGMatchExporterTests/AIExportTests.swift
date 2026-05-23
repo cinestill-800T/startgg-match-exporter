@@ -9,9 +9,14 @@ struct AIExportTests {
         let packet = AIExportBuilder.build(from: sampleDocument())
 
         #expect(packet.entrants.count == 3)
-        #expect(packet.matches.count == 2)
         #expect(packet.players.count == 3)
         #expect(packet.phaseGroups.count == 1)
+        #expect(packet.matchIndex.byId.count == 2)
+        #expect(packet.matchIndex.pendingByEntrantId["1"] == [FlexibleID("s2")])
+        #expect(packet.matchIndex.completedByEntrantId["1"] == [FlexibleID("s1")])
+        #expect(packet.frontier.pendingMatchIds == [FlexibleID("s2")])
+        #expect(packet.compressedHistory.byEntrantId["1"]?.lastCompletedSetId == FlexibleID("s1"))
+        #expect(packet.entrantIndex.nameSearch.contains { $0.entrantId == FlexibleID("1") && $0.tokens.contains("tokido") })
 
         let tokido = packet.players.first { $0.name == "ROHTO Z! Tokido" }
         #expect(tokido?.wins == 1)
@@ -26,8 +31,8 @@ struct AIExportTests {
 
     @Test("Encodes matches as JSON lines")
     func encodesMatchesAsJSONLines() throws {
-        let packet = AIExportBuilder.build(from: sampleDocument())
-        let data = try AIExportBuilder.encodeJSONLines(packet.matches)
+        let matches = AIExportBuilder.normalizedMatches(from: sampleDocument())
+        let data = try AIExportBuilder.encodeJSONLines(matches)
         let lines = String(decoding: data, as: UTF8.self).split(separator: "\n")
 
         #expect(lines.count == 2)
@@ -56,8 +61,11 @@ struct AIExportTests {
         let analysis = try String(contentsOf: folder.appendingPathComponent("analysis.json"), encoding: .utf8)
         #expect(analysis.contains("\"players\""))
         #expect(analysis.contains("\"routes\""))
+        #expect(analysis.contains("\"matchIndex\""))
+        #expect(analysis.contains("\"frontier\""))
         let prompt = try String(contentsOf: folder.appendingPathComponent("analysis-prompt.md"), encoding: .utf8)
-        #expect(prompt.contains("Prefer these normalized files"))
+        #expect(prompt.contains("Do not scan every match first"))
+        #expect(prompt.contains("Target-player workflow"))
         #expect(prompt.contains("Do not assume nationality"))
     }
 

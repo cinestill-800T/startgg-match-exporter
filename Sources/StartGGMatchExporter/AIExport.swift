@@ -2,9 +2,13 @@ import Foundation
 
 struct AIExportPacket: Codable, Hashable, Sendable {
     var metadata: AIExportMetadata
+    var usageGuide: AIUsageGuide
+    var entrantIndex: AIEntrantIndex
+    var matchIndex: AIMatchIndex
+    var frontier: AIFrontier
+    var compressedHistory: AICompressedHistory
     var entrants: [AIEntrantRow]
     var standings: [AIStandingRow]
-    var matches: [AIMatchRow]
     var players: [AIPlayerRow]
     var phaseGroups: [AIPhaseGroupRow]
     var routes: [AIPlayerRouteRow]
@@ -25,6 +29,76 @@ struct AIExportManifestFile: Codable, Hashable, Sendable {
     var path: String
     var description: String
     var records: Int?
+}
+
+struct AIUsageGuide: Codable, Hashable, Sendable {
+    var purpose: String
+    var targetPlayerWorkflow: [String]
+    var filePriority: [String]
+    var caveats: [String]
+}
+
+struct AIEntrantIndex: Codable, Hashable, Sendable {
+    var byId: [String: Int]
+    var nameSearch: [AINameSearchRow]
+}
+
+struct AINameSearchRow: Codable, Hashable, Sendable {
+    var entrantId: FlexibleID
+    var name: String?
+    var normalizedName: String
+    var aliases: [String]
+    var tokens: [String]
+    var seed: Int?
+    var standingPlacement: Int?
+}
+
+struct AIMatchIndex: Codable, Hashable, Sendable {
+    var byId: [String: AIMatchIndexRow]
+    var byEntrantId: [String: [FlexibleID]]
+    var pendingByEntrantId: [String: [FlexibleID]]
+    var completedByEntrantId: [String: [FlexibleID]]
+}
+
+struct AIMatchIndexRow: Codable, Hashable, Sendable {
+    var setId: FlexibleID
+    var phaseName: String?
+    var phaseGroupLabel: String?
+    var roundText: String?
+    var stateLabel: String
+    var entrantIds: [FlexibleID]
+    var winnerId: FlexibleID?
+}
+
+struct AIFrontier: Codable, Hashable, Sendable {
+    var activeEntrantIds: [FlexibleID]
+    var pendingMatchIds: [FlexibleID]
+    var activeMatchIds: [FlexibleID]
+    var phaseGroupsWithPending: [AIPhaseGroupFrontier]
+}
+
+struct AIPhaseGroupFrontier: Codable, Hashable, Sendable {
+    var phaseId: FlexibleID
+    var phaseName: String?
+    var phaseGroupId: FlexibleID
+    var phaseGroupLabel: String?
+    var pendingSetIds: [FlexibleID]
+    var entrantIds: [FlexibleID]
+}
+
+struct AICompressedHistory: Codable, Hashable, Sendable {
+    var byEntrantId: [String: AIPlayerHistorySummary]
+}
+
+struct AIPlayerHistorySummary: Codable, Hashable, Sendable {
+    var entrantId: FlexibleID
+    var wins: Int
+    var losses: Int
+    var completedSetCount: Int
+    var lastCompletedSetId: FlexibleID?
+    var lastCompletedPhaseName: String?
+    var lastCompletedRoundText: String?
+    var recentCompletedMatches: [AIPlayerMatchRef]
 }
 
 struct AIEntrantRow: Codable, Hashable, Sendable {
@@ -150,6 +224,14 @@ struct AIEntrantRef: Codable, Hashable, Sendable {
 
 enum AIExportBuilder {
     static func build(from document: ExportDocument) -> AIExportPacket {
+        buildResult(from: document).packet
+    }
+
+    static func normalizedMatches(from document: ExportDocument) -> [AIMatchRow] {
+        matchRows(from: document)
+    }
+
+    private static func buildResult(from document: ExportDocument) -> (packet: AIExportPacket, matches: [AIMatchRow]) {
         let entrants = mergedEntrants(from: document)
         let standingsByEntrantId = standingsMap(from: document)
         let entrantRows = entrants.map { entrant in
@@ -178,35 +260,28 @@ enum AIExportBuilder {
         let playerRows = playerRows(entrants: entrants, standingsByEntrantId: standingsByEntrantId, matches: matchRows)
         let phaseGroupRows = phaseGroupRows(from: document)
         let routes = routeRows(players: playerRows, phaseGroups: phaseGroupRows)
-
-        return AIExportPacket(
-            metadata: AIExportMetadata(
-                schemaVersion: 1,
-                generatedAt: ISO8601DateFormatter().string(from: Date()),
-                source: document.source,
-                eventName: document.event.name,
-                tournamentName: document.event.tournament?.name,
-                videogameName: document.event.videogame?.name,
-                summary: document.summary,
-                notes: [
-                    "Use these normalized files before falling back to raw.json.",
-                    "Routes are partial bracket-context hints. They do not include start.gg prerequisite-slot graph edges unless those are present in raw data.",
-                    "Player nationality is not inferred by this app."
-                ]
-            ),
+        let packet = AIExportPacket(
+            metadata: metadata(from: document),
+            usageGuide: usageGuide(),
+            entrantIndex: entrantIndex(entrants: entrantRows),
+            matchIndex: matchIndex(matches: matchRows),
+            frontier: frontier(players: playerRows, matches: matchRows, phaseGroups: phaseGroupRows),
+            compressedHistory: compressedHistory(players: playerRows),
             entrants: entrantRows,
             standings: standingRows,
-            matches: matchRows,
             players: playerRows,
             phaseGroups: phaseGroupRows,
             routes: routes
         )
+
+        return (packet, matchRows)
     }
 
     @discardableResult
     static func writePacket(document: ExportDocument, to folderURL: URL) throws -> [URL] {
         try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
-        let packet = build(from: document)
+        let result = buildResult(from: document)
+        let packet = result.packet
         var written: [URL] = []
 
         func write(_ data: Data, named filename: String) throws {
@@ -217,7 +292,7 @@ enum AIExportBuilder {
 
         try write(ExportService().encode(document), named: "raw.json")
         try write(encodePretty(packet), named: "analysis.json")
-        try write(encodeJSONLines(packet.matches), named: "matches.jsonl")
+        try write(encodeJSONLines(result.matches), named: "matches.jsonl")
         try write(Data(summaryMarkdown(from: packet).utf8), named: "summary.md")
         try write(Data(analysisPrompt(from: packet).utf8), named: "analysis-prompt.md")
 
@@ -247,9 +322,10 @@ enum AIExportBuilder {
         lines.append("- Generated: \(packet.metadata.generatedAt)")
         lines.append("- Source: \(packet.metadata.source.inputURL)")
         lines.append("- Entrants: \(packet.entrants.count)")
-        lines.append("- Matches: \(packet.matches.count)")
-        lines.append("- Completed matches: \(packet.matches.filter { $0.state == 3 }.count)")
-        lines.append("- Pending/active matches: \(packet.matches.filter { $0.state != 3 }.count)")
+        lines.append("- Matches: \(packet.metadata.summary.setCount)")
+        lines.append("- Completed matches: \(packet.metadata.summary.completedSetCount)")
+        lines.append("- Pending matches: \(packet.metadata.summary.pendingSetCount)")
+        lines.append("- Frontier active entrants: \(packet.frontier.activeEntrantIds.count)")
         lines.append("")
         lines.append("## Files")
         lines.append("")
@@ -268,7 +344,7 @@ enum AIExportBuilder {
             lines.append("| \(markdownCell(player.name ?? player.entrantId.value)) | \(player.seed.map(String.init) ?? "") | \(markdownCell(player.latestPhaseGroupLabel ?? "")) | \(player.pendingSetCount) | \(markdownCell(opponents)) |")
         }
         lines.append("")
-        lines.append("Route data is a partial context aid. Use `raw.json` only when the normalized files do not contain enough detail.")
+        lines.append("For a target player, start with `entrantIndex.nameSearch`, then `players`, `matchIndex`, `frontier`, and `routes`. Use `matches.jsonl` only for detailed match rows.")
         return lines.joined(separator: "\n")
     }
 
@@ -276,17 +352,26 @@ enum AIExportBuilder {
         """
         You are analyzing a start.gg tournament export.
 
-        Prefer these normalized files before reading raw.json:
-        1. analysis.json: the primary normalized analysis packet. It includes metadata, entrants, standings, matches, players, phaseGroups, and routes.
-        2. matches.jsonl: one match per line for tools or AIs that handle line-oriented data better.
-        3. summary.md: a compact human-readable overview.
-        4. raw.json: the complete original export for fallback inspection only.
+        Primary rule:
+        Do not scan every match first. Resolve the requested player to entrantId, then follow the indices in analysis.json.
+
+        Target-player workflow:
+        1. Normalize the requested name by lowercasing, trimming spaces, folding width/diacritics, and removing punctuation if needed.
+        2. Search analysis.json.entrantIndex.nameSearch. Prefer exact normalizedName or alias matches; if multiple plausible entrants remain, mention the ambiguity.
+        3. Use the entrantId to read analysis.json.players for current status, wins/losses, pendingMatches, completedMatches, and latest phase/group.
+        4. Use analysis.json.matchIndex.pendingByEntrantId[entrantId] for known next or active matches. Use matchIndex.byId for the compact match context.
+        5. Use analysis.json.routes for route hints. Treat knownPendingOpponents as stronger than groupOpponentCandidates.
+        6. Use analysis.json.frontier to understand what remains live in the tournament without reading unrelated completed matches.
+        7. Use analysis.json.compressedHistory.byEntrantId[entrantId] for past results unless the user asks for detailed history.
+        8. Open matches.jsonl only when you need full normalized match rows for specific setIds.
+        9. Open raw.json only as a last resort when normalized data is insufficient.
 
         Important caveats:
         - Do not assume nationality from this export alone. If the user asks for Japanese players, use the user-provided list or explicitly state that nationality is inferred externally.
         - routeConfidence is usually partial because this export may not include start.gg prerequisite-slot graph edges.
-        - For confirmed results, trust matches.jsonl rows where stateLabel is completed.
+        - For confirmed results, trust completedMatches in players or matches.jsonl rows where stateLabel is completed.
         - For future opponents, distinguish known pending opponents from broader groupOpponentCandidates.
+        - Unrelated completed matches are intentionally compressed. Do not expand them unless the user asks.
         - raw.json is included as a fallback for missing fields, not as the primary analysis surface.
 
         Event: \(packet.metadata.eventName ?? "unknown")
@@ -297,12 +382,163 @@ enum AIExportBuilder {
 
     private static func fileGuide(from packet: AIExportPacket) -> [AIExportManifestFile] {
         [
-            AIExportManifestFile(path: "analysis.json", description: "Primary normalized analysis packet with entrants, standings, matches, players, phase groups, and routes.", records: nil),
-            AIExportManifestFile(path: "matches.jsonl", description: "One normalized match per line.", records: packet.matches.count),
+            AIExportManifestFile(path: "analysis.json", description: "Primary target-agnostic analysis packet with lookup indices, frontier, compressed history, players, phase groups, and routes.", records: nil),
+            AIExportManifestFile(path: "matches.jsonl", description: "One normalized match per line for set-level drill-down.", records: packet.metadata.summary.setCount),
             AIExportManifestFile(path: "summary.md", description: "Human-readable overview for quick review.", records: nil),
             AIExportManifestFile(path: "analysis-prompt.md", description: "Prompt guidance for an external AI assistant.", records: nil),
             AIExportManifestFile(path: "raw.json", description: "Original comprehensive export for fallback inspection.", records: nil)
         ]
+    }
+
+    private static func metadata(from document: ExportDocument) -> AIExportMetadata {
+        AIExportMetadata(
+            schemaVersion: 2,
+            generatedAt: ISO8601DateFormatter().string(from: Date()),
+            source: document.source,
+            eventName: document.event.name,
+            tournamentName: document.event.tournament?.name,
+            videogameName: document.event.videogame?.name,
+            summary: document.summary,
+            notes: [
+                "analysis.json is optimized for arbitrary target-player lookup. Use entrantIndex and matchIndex before scanning matches.jsonl.",
+                "Full match rows are stored in matches.jsonl, not duplicated inside analysis.json.",
+                "Routes are partial bracket-context hints. They do not include start.gg prerequisite-slot graph edges unless those are present in raw data.",
+                "Player nationality is not inferred by this app."
+            ]
+        )
+    }
+
+    private static func usageGuide() -> AIUsageGuide {
+        AIUsageGuide(
+            purpose: "Help an external AI answer arbitrary player-status and route questions without scanning unrelated completed matches first.",
+            targetPlayerWorkflow: [
+                "Find the entrantId via entrantIndex.nameSearch.",
+                "Read players for current status, record, latest location, and compact match references.",
+                "Use matchIndex.pendingByEntrantId and matchIndex.completedByEntrantId to jump to relevant setIds.",
+                "Use routes for known pending opponents and broader same-group candidates.",
+                "Use frontier for live tournament context.",
+                "Use compressedHistory for past results unless detailed per-set history is requested.",
+                "Use matches.jsonl for specific setIds and raw.json only as fallback."
+            ],
+            filePriority: ["analysis.json", "matches.jsonl", "summary.md", "raw.json"],
+            caveats: [
+                "Nationality is not inferred.",
+                "groupOpponentCandidates are not confirmed future opponents.",
+                "routeConfidence is partial unless explicit bracket graph edges are available."
+            ]
+        )
+    }
+
+    private static func entrantIndex(entrants: [AIEntrantRow]) -> AIEntrantIndex {
+        var byId: [String: Int] = [:]
+        var nameRows: [AINameSearchRow] = []
+        for (index, entrant) in entrants.enumerated() {
+            byId[entrant.entrantId.value] = index
+            let aliases = Array(Set(([entrant.name].compactMap { $0 } + entrant.participantTags + entrant.prefixes))).sorted()
+            let searchText = aliases.joined(separator: " ")
+            nameRows.append(
+                AINameSearchRow(
+                    entrantId: entrant.entrantId,
+                    name: entrant.name,
+                    normalizedName: normalize(entrant.name ?? entrant.entrantId.value),
+                    aliases: aliases,
+                    tokens: tokens(from: searchText),
+                    seed: entrant.seed,
+                    standingPlacement: entrant.standingPlacement
+                )
+            )
+        }
+        return AIEntrantIndex(byId: byId, nameSearch: nameRows)
+    }
+
+    private static func matchIndex(matches: [AIMatchRow]) -> AIMatchIndex {
+        var byId: [String: AIMatchIndexRow] = [:]
+        var byEntrantId: [String: [FlexibleID]] = [:]
+        var pendingByEntrantId: [String: [FlexibleID]] = [:]
+        var completedByEntrantId: [String: [FlexibleID]] = [:]
+
+        for match in matches {
+            let entrantIds = match.slots.compactMap(\.entrantId)
+            byId[match.setId.value] = AIMatchIndexRow(
+                setId: match.setId,
+                phaseName: match.phaseName,
+                phaseGroupLabel: match.phaseGroupLabel,
+                roundText: match.roundText,
+                stateLabel: match.stateLabel,
+                entrantIds: entrantIds,
+                winnerId: match.winnerId
+            )
+            for entrantId in entrantIds {
+                byEntrantId[entrantId.value, default: []].append(match.setId)
+                if match.stateLabel == "completed" {
+                    completedByEntrantId[entrantId.value, default: []].append(match.setId)
+                } else {
+                    pendingByEntrantId[entrantId.value, default: []].append(match.setId)
+                }
+            }
+        }
+
+        return AIMatchIndex(
+            byId: byId,
+            byEntrantId: byEntrantId,
+            pendingByEntrantId: pendingByEntrantId,
+            completedByEntrantId: completedByEntrantId
+        )
+    }
+
+    private static func frontier(
+        players: [AIPlayerRow],
+        matches: [AIMatchRow],
+        phaseGroups: [AIPhaseGroupRow]
+    ) -> AIFrontier {
+        let activeEntrantIds = players
+            .filter { $0.status == "active" }
+            .map(\.entrantId)
+        let pendingMatches = matches
+            .filter { $0.stateLabel == "pending" }
+            .map(\.setId)
+        let activeMatches = matches
+            .filter { $0.stateLabel == "started" || $0.stateLabel == "called" }
+            .map(\.setId)
+        let groups = phaseGroups
+            .filter { !$0.pendingSetIds.isEmpty }
+            .map {
+                AIPhaseGroupFrontier(
+                    phaseId: $0.phaseId,
+                    phaseName: $0.phaseName,
+                    phaseGroupId: $0.phaseGroupId,
+                    phaseGroupLabel: $0.phaseGroupLabel,
+                    pendingSetIds: $0.pendingSetIds,
+                    entrantIds: $0.entrantIds
+                )
+            }
+
+        return AIFrontier(
+            activeEntrantIds: activeEntrantIds,
+            pendingMatchIds: pendingMatches,
+            activeMatchIds: activeMatches,
+            phaseGroupsWithPending: groups
+        )
+    }
+
+    private static func compressedHistory(players: [AIPlayerRow]) -> AICompressedHistory {
+        let rows = players.map { player in
+            let lastCompleted = player.completedMatches.last
+            return (
+                player.entrantId.value,
+                AIPlayerHistorySummary(
+                    entrantId: player.entrantId,
+                    wins: player.wins,
+                    losses: player.losses,
+                    completedSetCount: player.completedSetCount,
+                    lastCompletedSetId: lastCompleted?.setId,
+                    lastCompletedPhaseName: lastCompleted?.phaseName,
+                    lastCompletedRoundText: lastCompleted?.roundText,
+                    recentCompletedMatches: Array(player.completedMatches.suffix(3))
+                )
+            )
+        }
+        return AICompressedHistory(byEntrantId: Dictionary(uniqueKeysWithValues: rows))
     }
 
     private static func matchRows(from document: ExportDocument) -> [AIMatchRow] {
@@ -614,6 +850,24 @@ enum AIExportBuilder {
         value
             .replacingOccurrences(of: "|", with: "\\|")
             .replacingOccurrences(of: "\n", with: " ")
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value
+            .folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: .current)
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    }
+
+    private static func tokens(from value: String) -> [String] {
+        let normalized = normalize(value)
+        let separators = CharacterSet.alphanumerics.inverted
+        let tokens = normalized
+            .components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return Array(Set(tokens)).sorted()
     }
 }
 
