@@ -155,14 +155,6 @@ struct ContentView: View {
                 .disabled(!viewModel.canStart)
                 .help("Ignore local cache and fetch a fresh export from start.gg.")
 
-                Button {
-                    viewModel.saveJSON()
-                } label: {
-                    Label("Save JSON", systemImage: "square.and.arrow.down")
-                }
-                .disabled(viewModel.lastDocument == nil || viewModel.isWorking)
-                .help("Save the fetched export document as formatted JSON.")
-
                 if viewModel.isWorking {
                     Button(role: .cancel) {
                         viewModel.cancel()
@@ -170,6 +162,22 @@ struct ContentView: View {
                         Label("Cancel", systemImage: "stop.circle")
                     }
                     .help("Cancel the current export. Finished phases are kept in the local cache and can be reused by the next fetch.")
+                } else {
+                    Button {
+                        viewModel.saveJSON()
+                    } label: {
+                        Label("Save JSON", systemImage: "square.and.arrow.down")
+                    }
+                    .disabled(viewModel.lastDocument == nil)
+                    .help("Save the fetched export document as formatted JSON.")
+
+                    Button {
+                        viewModel.saveAnalysisPacket()
+                    } label: {
+                        Label("Analysis", systemImage: "tablecells")
+                    }
+                    .disabled(viewModel.lastDocument == nil)
+                    .help("Save a Downloads folder with normalized tables, JSONL matches, route hints, Markdown summary, and an analysis prompt.")
                 }
             }
         }

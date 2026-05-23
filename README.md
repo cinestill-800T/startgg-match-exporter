@@ -52,6 +52,23 @@ Watchlist outputs:
 
 Matching is mechanical and transparent. The app does not infer nationality, team affiliation, or tournament outcomes beyond the set data returned by start.gg.
 
+## Analysis Pack
+
+After fetching an event, click `Analysis` to create a folder in Downloads with AI-friendly normalized files:
+
+- `raw.json`: the complete original export
+- `metadata.json`: event source, summary, and caveats
+- `entrants.json`: flat entrant table
+- `standings.json`: flat standings table
+- `matches.jsonl`: one normalized match per line
+- `players.json`: player-centric wins, losses, pending matches, and status hints
+- `phase-groups.json`: phase group summaries and entrant IDs
+- `routes.json`: partial route context with known pending opponents and same-group candidates
+- `summary.md`: compact human-readable overview
+- `analysis-prompt.md`: guidance for external AI analysis
+
+Route data is intentionally marked as partial because start.gg set data does not always include explicit prerequisite-slot graph edges. Use it as a prediction aid, not as a confirmed bracket path.
+
 ## Local Cache
 
 The app caches exports in Application Support and reuses them for the same event URL and connection mode. Fetching with cache enabled uses the cache as a base, skips phases whose cached sets are all completed, and updates the remaining phases. During long exports, the app also saves partial cache snapshots after each phase. If you cancel an export, the next normal `Fetch Data` run can continue from the finished cached phases.

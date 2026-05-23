@@ -215,6 +215,33 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    func saveAnalysisPacket() {
+        guard let lastDocument else {
+            appendLog("Fetch data before saving an analysis pack.")
+            return
+        }
+
+        guard let downloads = downloadsDirectory() else {
+            appendLog("Downloads folder is unavailable.")
+            return
+        }
+
+        do {
+            let eventName = sanitizedFileName(lastDocument.event.name ?? "startgg-event")
+            let timestamp = timestampForFolderName()
+            let folderURL = uniqueFolderURL(
+                baseURL: downloads.appendingPathComponent("\(eventName)-analysis-\(timestamp)", isDirectory: true)
+            )
+            let files = try AIExportBuilder.writePacket(document: lastDocument, to: folderURL)
+            lastOutputURL = folderURL
+            appendLog("Saved analysis pack: \(folderURL.path)")
+            appendLog("Analysis files: \(files.count)")
+            NSWorkspace.shared.activateFileViewerSelecting([folderURL])
+        } catch {
+            appendLog("Analysis pack save failed: \(error.localizedDescription)")
+        }
+    }
+
     func saveWatchlistJSON() {
         guard let scope = makeWatchlistScope() else {
             appendLog("Fetch data and paste watchlist names before saving a focused JSON.")
@@ -319,6 +346,25 @@ final class AppViewModel: ObservableObject {
 
     private func downloadsDirectory() -> URL? {
         FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+    }
+
+    private func uniqueFolderURL(baseURL: URL) -> URL {
+        var candidate = baseURL
+        var index = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = baseURL.deletingLastPathComponent()
+                .appendingPathComponent("\(baseURL.lastPathComponent)-\(index)", isDirectory: true)
+            index += 1
+        }
+        return candidate
+    }
+
+    private func timestampForFolderName() -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter.string(from: Date())
     }
 
     private func appendLog(_ line: String) {
