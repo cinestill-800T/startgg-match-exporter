@@ -5,7 +5,11 @@ import UniformTypeIdentifiers
 @MainActor
 final class AppViewModel: ObservableObject {
     @Published var token: String = ""
-    @Published var eventURL: String = ""
+    @Published var eventURL: String = "" {
+        didSet {
+            UserDefaults.standard.set(eventURL, forKey: Self.lastEventURLDefaultsKey)
+        }
+    }
     @Published var isWorking = false
     @Published var progressMessage = "Ready"
     @Published var logText = ""
@@ -19,9 +23,11 @@ final class AppViewModel: ObservableObject {
     @Published var useCache = true
 
     private var currentTask: Task<Void, Never>?
+    private static let lastEventURLDefaultsKey = "lastEventURL"
 
     init() {
         token = (try? KeychainTokenStore.load()) ?? ""
+        eventURL = UserDefaults.standard.string(forKey: Self.lastEventURLDefaultsKey) ?? ""
     }
 
     var canStart: Bool {
@@ -190,6 +196,7 @@ final class AppViewModel: ObservableObject {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true
+        panel.directoryURL = downloadsDirectory()
         let name = sanitizedFileName(lastDocument.event.name ?? "startgg-event")
         panel.nameFieldStringValue = "\(name)-matches.json"
 
@@ -217,6 +224,7 @@ final class AppViewModel: ObservableObject {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true
+        panel.directoryURL = downloadsDirectory()
         let name = sanitizedFileName(lastDocument?.event.name ?? "startgg-event")
         panel.nameFieldStringValue = "\(name)-watchlist.json"
 
@@ -243,6 +251,7 @@ final class AppViewModel: ObservableObject {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
         panel.canCreateDirectories = true
+        panel.directoryURL = downloadsDirectory()
         let name = sanitizedFileName(lastDocument?.event.name ?? "startgg-event")
         panel.nameFieldStringValue = "\(name)-watchlist.md"
 
@@ -270,7 +279,7 @@ final class AppViewModel: ObservableObject {
             appendLog(warning)
         }
         guard let url = result.url else {
-            appendLog("Config file is unavailable.")
+            appendLog("config.json を利用できません。")
             return
         }
         NSWorkspace.shared.activateFileViewerSelecting([url])
@@ -306,6 +315,10 @@ final class AppViewModel: ObservableObject {
             return nil
         }
         return ExportCache.cachedDocument(for: slug, mode: mode)
+    }
+
+    private func downloadsDirectory() -> URL? {
+        FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
     }
 
     private func appendLog(_ line: String) {
