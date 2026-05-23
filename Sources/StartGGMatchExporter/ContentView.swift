@@ -164,20 +164,12 @@ struct ContentView: View {
                     .help("Cancel the current export. Finished phases are kept in the local cache and can be reused by the next fetch.")
                 } else {
                     Button {
-                        viewModel.saveJSON()
-                    } label: {
-                        Label("Save JSON", systemImage: "square.and.arrow.down")
-                    }
-                    .disabled(viewModel.lastDocument == nil)
-                    .help("Save the fetched export document as formatted JSON.")
-
-                    Button {
                         viewModel.saveAnalysisPacket()
                     } label: {
                         Label("Analysis", systemImage: "tablecells")
                     }
                     .disabled(viewModel.lastDocument == nil)
-                    .help("Save a Downloads folder with normalized tables, JSONL matches, route hints, Markdown summary, and an analysis prompt.")
+                    .help("Save one Downloads folder with raw JSON plus a compact AI analysis packet.")
                 }
             }
         }

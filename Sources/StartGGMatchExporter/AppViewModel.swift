@@ -187,34 +187,6 @@ final class AppViewModel: ObservableObject {
         currentTask = nil
     }
 
-    func saveJSON() {
-        guard let lastDocument else {
-            appendLog("Fetch data before saving JSON.")
-            return
-        }
-
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.canCreateDirectories = true
-        panel.directoryURL = downloadsDirectory()
-        let name = sanitizedFileName(lastDocument.event.name ?? "startgg-event")
-        panel.nameFieldStringValue = "\(name)-matches.json"
-
-        guard panel.runModal() == .OK, let url = panel.url else {
-            appendLog("Save cancelled.")
-            return
-        }
-
-        do {
-            let data = try ExportService().encode(lastDocument)
-            try data.write(to: url, options: .atomic)
-            lastOutputURL = url
-            appendLog("Saved JSON: \(url.path)")
-        } catch {
-            appendLog("Save failed: \(error.localizedDescription)")
-        }
-    }
-
     func saveAnalysisPacket() {
         guard let lastDocument else {
             appendLog("Fetch data before saving an analysis pack.")

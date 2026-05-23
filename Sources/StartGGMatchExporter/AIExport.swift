@@ -21,14 +21,6 @@ struct AIExportMetadata: Codable, Hashable, Sendable {
     var notes: [String]
 }
 
-struct AIExportManifest: Codable, Hashable, Sendable {
-    var schemaVersion: Int
-    var generatedAt: String
-    var eventName: String?
-    var sourceURL: String
-    var files: [AIExportManifestFile]
-}
-
 struct AIExportManifestFile: Codable, Hashable, Sendable {
     var path: String
     var description: String
@@ -224,16 +216,10 @@ enum AIExportBuilder {
         }
 
         try write(ExportService().encode(document), named: "raw.json")
-        try write(encodePretty(packet.metadata), named: "metadata.json")
-        try write(encodePretty(packet.entrants), named: "entrants.json")
-        try write(encodePretty(packet.standings), named: "standings.json")
+        try write(encodePretty(packet), named: "analysis.json")
         try write(encodeJSONLines(packet.matches), named: "matches.jsonl")
-        try write(encodePretty(packet.players), named: "players.json")
-        try write(encodePretty(packet.phaseGroups), named: "phase-groups.json")
-        try write(encodePretty(packet.routes), named: "routes.json")
         try write(Data(summaryMarkdown(from: packet).utf8), named: "summary.md")
         try write(Data(analysisPrompt(from: packet).utf8), named: "analysis-prompt.md")
-        try write(encodePretty(manifest(from: packet)), named: "manifest.json")
 
         return written
     }
@@ -267,7 +253,7 @@ enum AIExportBuilder {
         lines.append("")
         lines.append("## Files")
         lines.append("")
-        for file in manifest(from: packet).files {
+        for file in fileGuide(from: packet) {
             let count = file.records.map { " (\($0) records)" } ?? ""
             lines.append("- `\(file.path)`\(count): \(file.description)")
         }
@@ -291,11 +277,10 @@ enum AIExportBuilder {
         You are analyzing a start.gg tournament export.
 
         Prefer these normalized files before reading raw.json:
-        1. players.json: player-centric records with wins, losses, pending matches, and status hints.
-        2. matches.jsonl: one match per line, normalized from phase/group/set/slot data.
-        3. routes.json: partial bracket context for each player, including known pending opponents and same-group candidates.
-        4. phase-groups.json: phase group summaries and entrant IDs.
-        5. standings.json and entrants.json: lookup tables.
+        1. analysis.json: the primary normalized analysis packet. It includes metadata, entrants, standings, matches, players, phaseGroups, and routes.
+        2. matches.jsonl: one match per line for tools or AIs that handle line-oriented data better.
+        3. summary.md: a compact human-readable overview.
+        4. raw.json: the complete original export for fallback inspection only.
 
         Important caveats:
         - Do not assume nationality from this export alone. If the user asks for Japanese players, use the user-provided list or explicitly state that nationality is inferred externally.
@@ -310,25 +295,14 @@ enum AIExportBuilder {
         """
     }
 
-    private static func manifest(from packet: AIExportPacket) -> AIExportManifest {
-        AIExportManifest(
-            schemaVersion: 1,
-            generatedAt: packet.metadata.generatedAt,
-            eventName: packet.metadata.eventName,
-            sourceURL: packet.metadata.source.inputURL,
-            files: [
-                AIExportManifestFile(path: "raw.json", description: "Original comprehensive export for fallback inspection.", records: nil),
-                AIExportManifestFile(path: "metadata.json", description: "Event metadata, source, summary, and analysis caveats.", records: 1),
-                AIExportManifestFile(path: "entrants.json", description: "One row per entrant with seed, tags, prefixes, and placement when available.", records: packet.entrants.count),
-                AIExportManifestFile(path: "standings.json", description: "Flat standings table.", records: packet.standings.count),
-                AIExportManifestFile(path: "matches.jsonl", description: "One normalized match per line.", records: packet.matches.count),
-                AIExportManifestFile(path: "players.json", description: "Player-centric records with results and pending match references.", records: packet.players.count),
-                AIExportManifestFile(path: "phase-groups.json", description: "Phase group summaries with entrant and pending set IDs.", records: packet.phaseGroups.count),
-                AIExportManifestFile(path: "routes.json", description: "Partial player route context for opponent prediction.", records: packet.routes.count),
-                AIExportManifestFile(path: "summary.md", description: "Human-readable overview for quick review.", records: nil),
-                AIExportManifestFile(path: "analysis-prompt.md", description: "Prompt guidance for an external AI assistant.", records: nil)
-            ]
-        )
+    private static func fileGuide(from packet: AIExportPacket) -> [AIExportManifestFile] {
+        [
+            AIExportManifestFile(path: "analysis.json", description: "Primary normalized analysis packet with entrants, standings, matches, players, phase groups, and routes.", records: nil),
+            AIExportManifestFile(path: "matches.jsonl", description: "One normalized match per line.", records: packet.matches.count),
+            AIExportManifestFile(path: "summary.md", description: "Human-readable overview for quick review.", records: nil),
+            AIExportManifestFile(path: "analysis-prompt.md", description: "Prompt guidance for an external AI assistant.", records: nil),
+            AIExportManifestFile(path: "raw.json", description: "Original comprehensive export for fallback inspection.", records: nil)
+        ]
     }
 
     private static func matchRows(from document: ExportDocument) -> [AIMatchRow] {

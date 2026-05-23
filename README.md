@@ -30,7 +30,7 @@ Create a token in start.gg Developer Settings and paste it into the app to enabl
 2. Paste a start.gg event URL, for example `https://www.start.gg/tournament/.../event/street-fighter-6`.
 3. Paste your start.gg API token for authenticated official API access, or leave it blank for Public Safe Mode.
 4. Click `Fetch Data`.
-5. Click `Save JSON`.
+5. Click `Analysis`.
 
 The exporter accepts normal event URLs and bracket URLs. It normalizes them to a start.gg event slug internally.
 
@@ -54,20 +54,15 @@ Matching is mechanical and transparent. The app does not infer nationality, team
 
 ## Analysis Pack
 
-After fetching an event, click `Analysis` to create a folder in Downloads with AI-friendly normalized files:
+After fetching an event, click `Analysis` to create a folder in Downloads with five files:
 
 - `raw.json`: the complete original export
-- `metadata.json`: event source, summary, and caveats
-- `entrants.json`: flat entrant table
-- `standings.json`: flat standings table
+- `analysis.json`: the primary normalized packet, including metadata, entrants, standings, matches, players, phase groups, and routes
 - `matches.jsonl`: one normalized match per line
-- `players.json`: player-centric wins, losses, pending matches, and status hints
-- `phase-groups.json`: phase group summaries and entrant IDs
-- `routes.json`: partial route context with known pending opponents and same-group candidates
 - `summary.md`: compact human-readable overview
 - `analysis-prompt.md`: guidance for external AI analysis
 
-Route data is intentionally marked as partial because start.gg set data does not always include explicit prerequisite-slot graph edges. Use it as a prediction aid, not as a confirmed bracket path.
+`Analysis` is the single export action. `raw.json` keeps the complete raw export, while `analysis.json` and `matches.jsonl` provide the AI-friendly normalized view. Route data is intentionally marked as partial because start.gg set data does not always include explicit prerequisite-slot graph edges. Use it as a prediction aid, not as a confirmed bracket path.
 
 ## Local Cache
 
