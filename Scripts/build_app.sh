@@ -48,6 +48,7 @@ build_one() {
 PLIST
 
   chmod +x "$app_dir/Contents/MacOS/$APP_NAME"
+  codesign --force --deep --sign - "$app_dir"
   (cd "$output_dir" && rm -f "$APP_NAME-macOS-$config.zip" && zip -qry "$APP_NAME-macOS-$config.zip" "$APP_NAME.app")
   echo "Built $app_dir"
 }
