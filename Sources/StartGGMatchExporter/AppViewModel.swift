@@ -16,6 +16,7 @@ final class AppViewModel: ObservableObject {
     @Published var totalSetCount = 0
     @Published var entrantCount = 0
     @Published var watchlistText = ""
+    @Published var useCache = true
 
     private var currentTask: Task<Void, Never>?
 
@@ -48,7 +49,7 @@ final class AppViewModel: ObservableObject {
             if token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 appendLog("Token cleared. Public Safe Mode will be used.")
             } else {
-                appendLog("Token saved to Keychain. Fast Mode will be used.")
+                appendLog("Token saved to Keychain. Authenticated Safe Mode will be used.")
             }
         } catch {
             appendLog("Token save failed: \(error.localizedDescription)")
@@ -65,7 +66,7 @@ final class AppViewModel: ObservableObject {
         }
     }
 
-    func fetch() {
+    func fetch(forceRefresh: Bool = false) {
         guard canStart else {
             appendLog("Enter a start.gg event URL first.")
             return
@@ -90,6 +91,24 @@ final class AppViewModel: ObservableObject {
 
         currentTask = Task { [weak self] in
             guard let self else { return }
+            if !forceRefresh, self.useCache {
+                do {
+                    let slug = try StartGGURLParser.eventSlug(from: inputURL)
+                    if let cached = ExportCache.cachedDocument(for: slug, mode: mode) {
+                        await MainActor.run {
+                            self.apply(document: cached, mode: mode)
+                            self.progressMessage = "Loaded cached export with \(cached.summary.setCount) sets."
+                            self.appendLog("Loaded cache for \(slug).")
+                        }
+                        return
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.appendLog("Cache lookup skipped: \(error.localizedDescription)")
+                    }
+                }
+            }
+
             let service = ExportService(options: ExportOptions.defaults(for: mode)) { [weak self] progress in
                 await MainActor.run {
                     self?.progressMessage = progress.total.map {
@@ -101,21 +120,10 @@ final class AppViewModel: ObservableObject {
             do {
                 let document = try await service.export(from: inputURL, token: inputToken)
                 await MainActor.run {
-                    self.lastDocument = document
-                    self.isWorking = false
+                    ExportCache.save(document)
+                    self.apply(document: document, mode: mode)
                     self.progressMessage = "Fetched \(document.summary.setCount) sets."
-                    self.completedSetCount = document.summary.completedSetCount
-                    self.pendingSetCount = document.summary.pendingSetCount
-                    self.totalSetCount = document.summary.setCount
-                    self.entrantCount = document.summary.entrantCount
-                    self.appendLog("Fetched event: \(document.event.name ?? document.event.id.value)")
-                    self.appendLog("Mode: \(mode.title)")
-                    self.appendLog("Entrants: \(document.summary.entrantCount)")
-                    self.appendLog("Standings: \(document.summary.standingCount)")
-                    self.appendLog("Sets: \(document.summary.setCount)")
-                    self.appendLog("Completed sets: \(document.summary.completedSetCount)")
-                    self.appendLog("Pending sets: \(document.summary.pendingSetCount)")
-                    self.appendLog("Started/called sets: \(document.summary.startedSetCount)")
+                    self.appendLog("Saved cache for \(document.source.eventSlug).")
                     if !self.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         let preview = WatchlistScopeBuilder.preview(for: self.watchlistText, document: document)
                         self.appendLog("Watchlist: \(preview.summaryText)")
@@ -223,6 +231,23 @@ final class AppViewModel: ObservableObject {
 
     func fetchAndSave() {
         fetch()
+    }
+
+    private func apply(document: ExportDocument, mode: StartGGAPIMode) {
+        lastDocument = document
+        isWorking = false
+        completedSetCount = document.summary.completedSetCount
+        pendingSetCount = document.summary.pendingSetCount
+        totalSetCount = document.summary.setCount
+        entrantCount = document.summary.entrantCount
+        appendLog("Event: \(document.event.name ?? document.event.id.value)")
+        appendLog("Mode: \(mode.title)")
+        appendLog("Entrants: \(document.summary.entrantCount)")
+        appendLog("Standings: \(document.summary.standingCount)")
+        appendLog("Sets: \(document.summary.setCount)")
+        appendLog("Completed sets: \(document.summary.completedSetCount)")
+        appendLog("Pending sets: \(document.summary.pendingSetCount)")
+        appendLog("Started/called sets: \(document.summary.startedSetCount)")
     }
 
     private func makeWatchlistScope() -> WatchlistExportDocument? {

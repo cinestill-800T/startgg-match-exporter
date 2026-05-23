@@ -73,10 +73,10 @@ struct ExportEncodingTests {
         let fast = ExportOptions.defaults(for: .authenticatedFast)
         let safe = ExportOptions.defaults(for: .publicSafe)
 
-        #expect(fast.concurrentPageRequests > safe.concurrentPageRequests)
+        #expect(fast.concurrentPageRequests == 1)
         #expect(fast.setPageSize < safe.setPageSize)
         #expect(fast.standingPageSize < safe.standingPageSize)
-        #expect(fast.minimumRequestIntervalSeconds <= safe.minimumRequestIntervalSeconds)
+        #expect(fast.minimumRequestIntervalSeconds > safe.minimumRequestIntervalSeconds)
     }
 
     @Test("Keeps official API page sizes under object caps")
@@ -84,8 +84,10 @@ struct ExportEncodingTests {
         let fast = ExportOptions.defaults(for: .authenticatedFast)
 
         #expect(fast.setPageSize <= 10)
-        #expect(fast.entrantPageSize <= 50)
-        #expect(fast.standingPageSize <= 25)
+        #expect(fast.entrantPageSize <= 25)
+        #expect(fast.standingPageSize <= 10)
+        #expect(fast.concurrentPageRequests == 1)
+        #expect(fast.minimumRequestIntervalSeconds >= 2.0)
     }
 
     @Test("Uses official API compatible event summary query")

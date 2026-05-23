@@ -16,7 +16,7 @@ enum StartGGAPIMode: String, Codable, Sendable {
     var title: String {
         switch self {
         case .authenticatedFast:
-            "Fast Mode"
+            "Authenticated Safe Mode"
         case .publicSafe:
             "Public Safe Mode"
         }
@@ -25,7 +25,7 @@ enum StartGGAPIMode: String, Codable, Sendable {
     var shortDescription: String {
         switch self {
         case .authenticatedFast:
-            "Token detected. Uses the official API with larger pages and parallel page reads."
+            "Token detected. Uses the official API with conservative pacing."
         case .publicSafe:
             "No token. Uses public web data with conservative pacing."
         }
@@ -34,7 +34,7 @@ enum StartGGAPIMode: String, Codable, Sendable {
     var helpText: String {
         switch self {
         case .authenticatedFast:
-            "Fast Mode uses your start.gg API token, larger page sizes, and a small amount of parallelism while still respecting rate limits."
+            "Authenticated Safe Mode uses your start.gg API token and intentionally slow sequential reads to avoid complexity and rate-limit failures."
         case .publicSafe:
             "Public Safe Mode does not require a token. It uses start.gg public web data and runs more slowly because that endpoint is less suitable for sustained export work."
         }
@@ -97,12 +97,13 @@ final class StartGGClient: Sendable {
 
         var attempt = 0
         var lastError: Error?
-        while attempt < 4 {
+        while attempt < 8 {
             do {
                 return try await sendOnce(requestBody: requestBody)
-            } catch StartGGClientError.invalidHTTPStatus(let status, _) where status == 429 || (500..<600).contains(status) {
-                lastError = StartGGClientError.invalidHTTPStatus(status, "Retrying after transient response.")
-                let delay = UInt64(pow(2.0, Double(attempt)) * 700_000_000)
+            } catch StartGGClientError.invalidHTTPStatus(let status, let body) where status == 429 || (500..<600).contains(status) {
+                lastError = StartGGClientError.invalidHTTPStatus(status, body)
+                let seconds = retryDelaySeconds(for: status, attempt: attempt)
+                let delay = UInt64(seconds * 1_000_000_000)
                 try await Task.sleep(nanoseconds: delay)
                 attempt += 1
             } catch {
@@ -114,6 +115,13 @@ final class StartGGClient: Sendable {
             throw lastError
         }
         throw StartGGClientError.missingData
+    }
+
+    private func retryDelaySeconds(for status: Int, attempt: Int) -> Double {
+        if status == 429 {
+            return min(90, 20 + Double(attempt * 10))
+        }
+        return min(30, pow(2.0, Double(attempt)) * 1.5)
     }
 
     private func sendOnce<T: Decodable>(requestBody: Data) async throws -> T {

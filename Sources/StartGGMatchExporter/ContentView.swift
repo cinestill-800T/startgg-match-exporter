@@ -52,7 +52,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 10) {
             panelTitle("Connection")
             HStack(spacing: 10) {
-                Image(systemName: viewModel.apiMode == .authenticatedFast ? "bolt.fill" : "tortoise.fill")
+                Image(systemName: viewModel.apiMode == .authenticatedFast ? "lock.shield.fill" : "tortoise.fill")
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(viewModel.apiMode == .authenticatedFast ? .green : .blue)
                     .frame(width: 22)
@@ -92,9 +92,9 @@ struct ContentView: View {
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
-                SecureField("Paste token for Fast Mode", text: $viewModel.token)
+                SecureField("Paste token for authenticated mode", text: $viewModel.token)
                     .textFieldStyle(.roundedBorder)
-                    .help("Leave this blank for Public Safe Mode. Paste a start.gg API token to use Fast Mode.")
+                    .help("Leave this blank for Public Safe Mode. Paste a start.gg API token to use the official API.")
             }
 
             HStack(spacing: 8) {
@@ -113,6 +113,10 @@ struct ContentView: View {
                 .help("Remove the saved token and return to Public Safe Mode.")
             }
             .controlSize(.small)
+
+            Toggle("Use local cache", isOn: $viewModel.useCache)
+                .toggleStyle(.checkbox)
+                .help("When enabled, the app reuses the latest export for the same event and mode instead of calling start.gg again.")
         }
     }
 
@@ -128,9 +132,17 @@ struct ContentView: View {
             .controlSize(.large)
             .keyboardShortcut(.return, modifiers: [.command])
             .disabled(!viewModel.canStart)
-            .help("Fetch entrants, standings, phases, and sets. Token input automatically enables Fast Mode.")
+            .help("Fetch entrants, standings, phases, and sets. Token input automatically enables the official API with safe pacing.")
 
             HStack(spacing: 8) {
+                Button {
+                    viewModel.fetch(forceRefresh: true)
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .disabled(!viewModel.canStart)
+                .help("Ignore local cache and fetch a fresh export from start.gg.")
+
                 Button {
                     viewModel.saveJSON()
                 } label: {

@@ -22,13 +22,13 @@ It does not infer player nationality, predict matches, or call external services
 - Xcode 26.5 or compatible Swift 6 toolchain
 - optional start.gg API token
 
-Create a token in start.gg Developer Settings and paste it into the app to enable Fast Mode. The token is stored in the macOS Keychain.
+Create a token in start.gg Developer Settings and paste it into the app to enable authenticated official API access. The token is stored in the macOS Keychain.
 
 ## Usage
 
 1. Open `release/StartGGMatchExporter.app`.
 2. Paste a start.gg event URL, for example `https://www.start.gg/tournament/.../event/street-fighter-6`.
-3. Paste your start.gg API token for Fast Mode, or leave it blank for Public Safe Mode.
+3. Paste your start.gg API token for authenticated official API access, or leave it blank for Public Safe Mode.
 4. Click `Fetch Data`.
 5. Click `Save JSON`.
 
@@ -38,7 +38,7 @@ The exporter accepts normal event URLs and bracket URLs. It normalizes them to a
 
 The app chooses the mode automatically:
 
-- `Fast Mode`: enabled when an API token is present. Uses the official API, conservative page sizes, parallel page reads, request throttling, and retry handling.
+- `Authenticated Safe Mode`: enabled when an API token is present. Uses the official API, small page sizes, sequential reads, request throttling, and longer retry waits for rate limits.
 - `Public Safe Mode`: enabled when the token field is blank. Uses public web data with conservative pacing. This is convenient for quick checks, but the official API is preferred for sustained exports.
 
 ## Watchlist Export
@@ -51,6 +51,10 @@ Watchlist outputs:
 - Markdown report for quick reading
 
 Matching is mechanical and transparent. The app does not infer nationality, team affiliation, or tournament outcomes beyond the set data returned by start.gg.
+
+## Local Cache
+
+The app caches completed exports in Application Support and reuses them for the same event URL and connection mode. Use `Refresh` to ignore the cache and fetch fresh data from start.gg.
 
 ## JSON Shape
 

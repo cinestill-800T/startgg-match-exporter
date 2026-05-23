@@ -14,10 +14,10 @@ struct ExportOptions: Sendable {
             // Nested set and standing queries expand quickly, so keep page sizes conservative.
             ExportOptions(
                 setPageSize: 10,
-                entrantPageSize: 50,
-                standingPageSize: 25,
-                minimumRequestIntervalSeconds: 0.75,
-                concurrentPageRequests: 4
+                entrantPageSize: 25,
+                standingPageSize: 10,
+                minimumRequestIntervalSeconds: 2.0,
+                concurrentPageRequests: 1
             )
         case .publicSafe:
             ExportOptions(
