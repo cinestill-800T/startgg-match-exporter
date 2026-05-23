@@ -43,7 +43,12 @@ struct ExportEncodingTests {
         let document = ExportDocument(
             schemaVersion: 1,
             fetchedAt: "2026-05-23T00:00:00Z",
-            source: ExportSource(inputURL: "https://www.start.gg/tournament/test/event/street-fighter-6", eventSlug: "tournament/test/event/street-fighter-6", apiEndpoint: "https://api.start.gg/gql/alpha"),
+            source: ExportSource(
+                inputURL: "https://www.start.gg/tournament/test/event/street-fighter-6",
+                eventSlug: "tournament/test/event/street-fighter-6",
+                apiEndpoint: "https://api.start.gg/gql/alpha",
+                apiMode: StartGGAPIMode.authenticatedFast.rawValue
+            ),
             summary: ExportSummary(phaseCount: 0, entrantCount: 0, standingCount: 0, setCount: 0, completedSetCount: 0, pendingSetCount: 0, startedSetCount: 0),
             event: event,
             entrants: [],
@@ -54,5 +59,22 @@ struct ExportEncodingTests {
         let json = String(decoding: data, as: UTF8.self)
         #expect(json.contains("\"schemaVersion\" : 1"))
         #expect(json.contains("\"Street Fighter 6\""))
+    }
+
+    @Test("Selects API mode from token")
+    func selectsAPIMode() {
+        #expect(StartGGAPIMode.resolved(for: "") == .publicSafe)
+        #expect(StartGGAPIMode.resolved(for: "   ") == .publicSafe)
+        #expect(StartGGAPIMode.resolved(for: "abc123") == .authenticatedFast)
+    }
+
+    @Test("Uses distinct mode defaults")
+    func usesModeDefaults() {
+        let fast = ExportOptions.defaults(for: .authenticatedFast)
+        let safe = ExportOptions.defaults(for: .publicSafe)
+
+        #expect(fast.concurrentPageRequests > safe.concurrentPageRequests)
+        #expect(fast.setPageSize > safe.setPageSize)
+        #expect(fast.minimumRequestIntervalSeconds < safe.minimumRequestIntervalSeconds)
     }
 }

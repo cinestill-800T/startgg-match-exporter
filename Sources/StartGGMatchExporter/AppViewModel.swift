@@ -10,6 +10,10 @@ final class AppViewModel: ObservableObject {
     @Published var logText = ""
     @Published var lastDocument: ExportDocument?
     @Published var lastOutputURL: URL?
+    @Published var completedSetCount = 0
+    @Published var pendingSetCount = 0
+    @Published var totalSetCount = 0
+    @Published var entrantCount = 0
 
     private var currentTask: Task<Void, Never>?
 
@@ -19,38 +23,62 @@ final class AppViewModel: ObservableObject {
 
     var canStart: Bool {
         !isWorking &&
-            !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !eventURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var apiMode: StartGGAPIMode {
+        StartGGAPIMode.resolved(for: token)
     }
 
     func saveToken() {
         do {
             try KeychainTokenStore.save(token)
-            appendLog("Token saved to Keychain.")
+            if token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                appendLog("Token cleared. Public Safe Mode will be used.")
+            } else {
+                appendLog("Token saved to Keychain. Fast Mode will be used.")
+            }
         } catch {
             appendLog("Token save failed: \(error.localizedDescription)")
         }
     }
 
+    func clearToken() {
+        do {
+            try KeychainTokenStore.delete()
+            token = ""
+            appendLog("Token cleared. Public Safe Mode will be used.")
+        } catch {
+            appendLog("Token clear failed: \(error.localizedDescription)")
+        }
+    }
+
     func fetch() {
         guard canStart else {
-            appendLog("Enter a start.gg event URL and API token first.")
+            appendLog("Enter a start.gg event URL first.")
             return
         }
 
-        saveToken()
+        if !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            saveToken()
+        }
         isWorking = true
         lastDocument = nil
         lastOutputURL = nil
-        progressMessage = "Starting export"
+        completedSetCount = 0
+        pendingSetCount = 0
+        totalSetCount = 0
+        entrantCount = 0
+        progressMessage = "Starting \(apiMode.title)"
         logText = ""
 
         let inputURL = eventURL
         let inputToken = token
+        let mode = apiMode
 
         currentTask = Task { [weak self] in
             guard let self else { return }
-            let service = ExportService { [weak self] progress in
+            let service = ExportService(options: ExportOptions.defaults(for: mode)) { [weak self] progress in
                 await MainActor.run {
                     self?.progressMessage = progress.total.map {
                         "\(progress.stage): \(progress.detail) (\(progress.current)/\($0))"
@@ -64,12 +92,18 @@ final class AppViewModel: ObservableObject {
                     self.lastDocument = document
                     self.isWorking = false
                     self.progressMessage = "Fetched \(document.summary.setCount) sets."
+                    self.completedSetCount = document.summary.completedSetCount
+                    self.pendingSetCount = document.summary.pendingSetCount
+                    self.totalSetCount = document.summary.setCount
+                    self.entrantCount = document.summary.entrantCount
                     self.appendLog("Fetched event: \(document.event.name ?? document.event.id.value)")
+                    self.appendLog("Mode: \(mode.title)")
                     self.appendLog("Entrants: \(document.summary.entrantCount)")
                     self.appendLog("Standings: \(document.summary.standingCount)")
                     self.appendLog("Sets: \(document.summary.setCount)")
                     self.appendLog("Completed sets: \(document.summary.completedSetCount)")
                     self.appendLog("Pending sets: \(document.summary.pendingSetCount)")
+                    self.appendLog("Started/called sets: \(document.summary.startedSetCount)")
                 }
             } catch is CancellationError {
                 await MainActor.run {

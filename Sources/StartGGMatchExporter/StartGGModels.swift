@@ -186,6 +186,7 @@ struct ExportSource: Codable, Hashable, Sendable {
     var inputURL: String
     var eventSlug: String
     var apiEndpoint: String
+    var apiMode: String
 }
 
 struct ExportSummary: Codable, Hashable, Sendable {

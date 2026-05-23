@@ -6,7 +6,13 @@ enum KeychainTokenStore {
     private static let account = "startgg-api-token"
 
     static func save(_ token: String) throws {
-        let data = Data(token.utf8)
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            try delete()
+            return
+        }
+
+        let data = Data(trimmed.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -51,6 +57,19 @@ enum KeychainTokenStore {
             return nil
         }
         return String(data: data, encoding: .utf8)
+    }
+
+    static func delete() throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess, status != errSecItemNotFound {
+            throw KeychainError(status: status)
+        }
     }
 }
 
