@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppViewModel: ObservableObject {
@@ -14,6 +15,7 @@ final class AppViewModel: ObservableObject {
     @Published var pendingSetCount = 0
     @Published var totalSetCount = 0
     @Published var entrantCount = 0
+    @Published var watchlistText = ""
 
     private var currentTask: Task<Void, Never>?
 
@@ -28,6 +30,16 @@ final class AppViewModel: ObservableObject {
 
     var apiMode: StartGGAPIMode {
         StartGGAPIMode.resolved(for: token)
+    }
+
+    var watchlistPreview: WatchlistPreview {
+        WatchlistScopeBuilder.preview(for: watchlistText, document: lastDocument)
+    }
+
+    var canSaveWatchlistScope: Bool {
+        lastDocument != nil &&
+            !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !isWorking
     }
 
     func saveToken() {
@@ -104,6 +116,10 @@ final class AppViewModel: ObservableObject {
                     self.appendLog("Completed sets: \(document.summary.completedSetCount)")
                     self.appendLog("Pending sets: \(document.summary.pendingSetCount)")
                     self.appendLog("Started/called sets: \(document.summary.startedSetCount)")
+                    if !self.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        let preview = WatchlistScopeBuilder.preview(for: self.watchlistText, document: document)
+                        self.appendLog("Watchlist: \(preview.summaryText)")
+                    }
                 }
             } catch is CancellationError {
                 await MainActor.run {
@@ -153,8 +169,67 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    func saveWatchlistJSON() {
+        guard let scope = makeWatchlistScope() else {
+            appendLog("Fetch data and paste watchlist names before saving a focused JSON.")
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.canCreateDirectories = true
+        let name = sanitizedFileName(lastDocument?.event.name ?? "startgg-event")
+        panel.nameFieldStringValue = "\(name)-watchlist.json"
+
+        guard panel.runModal() == .OK, let url = panel.url else {
+            appendLog("Watchlist JSON save cancelled.")
+            return
+        }
+
+        do {
+            let data = try WatchlistScopeBuilder.encodeJSON(scope)
+            try data.write(to: url, options: .atomic)
+            appendLog("Saved watchlist JSON: \(url.path)")
+        } catch {
+            appendLog("Watchlist JSON save failed: \(error.localizedDescription)")
+        }
+    }
+
+    func saveWatchlistMarkdown() {
+        guard let scope = makeWatchlistScope() else {
+            appendLog("Fetch data and paste watchlist names before saving a focused report.")
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
+        panel.canCreateDirectories = true
+        let name = sanitizedFileName(lastDocument?.event.name ?? "startgg-event")
+        panel.nameFieldStringValue = "\(name)-watchlist.md"
+
+        guard panel.runModal() == .OK, let url = panel.url else {
+            appendLog("Watchlist Markdown save cancelled.")
+            return
+        }
+
+        do {
+            let markdown = WatchlistScopeBuilder.markdown(from: scope)
+            try Data(markdown.utf8).write(to: url, options: .atomic)
+            appendLog("Saved watchlist Markdown: \(url.path)")
+        } catch {
+            appendLog("Watchlist Markdown save failed: \(error.localizedDescription)")
+        }
+    }
+
     func fetchAndSave() {
         fetch()
+    }
+
+    private func makeWatchlistScope() -> WatchlistExportDocument? {
+        guard let lastDocument, !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return WatchlistScopeBuilder.build(from: lastDocument, watchlistText: watchlistText)
     }
 
     private func appendLog(_ line: String) {

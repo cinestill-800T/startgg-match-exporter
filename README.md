@@ -7,7 +7,7 @@
 
 StartGG Match Exporter is a small macOS SwiftUI app that exports a start.gg event into JSON for downstream analysis.
 
-It does not infer player nationality, predict matches, or call any AI service. It focuses on collecting comprehensive structured data:
+It does not infer player nationality, predict matches, or call external services beyond start.gg. It focuses on collecting comprehensive structured data:
 
 - event metadata
 - phases and progression metadata
@@ -40,6 +40,17 @@ The app chooses the mode automatically:
 
 - `Fast Mode`: enabled when an API token is present. Uses the official API, larger pages, parallel page reads, request throttling, and retry handling.
 - `Public Safe Mode`: enabled when the token field is blank. Uses public web data with conservative pacing. This is convenient for quick checks, but the official API is preferred for sustained exports.
+
+## Watchlist Export
+
+After fetching an event, paste player names into the Watchlist field. The app matches those names against entrant names, gamer tags, and common prefix forms, then exports only the related sets.
+
+Watchlist outputs:
+
+- focused JSON for structured processing
+- Markdown report for quick reading
+
+Matching is mechanical and transparent. The app does not infer nationality, team affiliation, or tournament outcomes beyond the set data returned by start.gg.
 
 ## JSON Shape
 

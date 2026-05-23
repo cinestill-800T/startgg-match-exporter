@@ -30,6 +30,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 18) {
             summaryPanel
             statusPanel
+            watchlistPanel
             logPanel
         }
         .padding(24)
@@ -201,6 +202,69 @@ struct ContentView: View {
                         .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
                 )
                 .frame(maxHeight: .infinity)
+        }
+    }
+
+    private var watchlistPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            panelTitle("Watchlist")
+            HStack(alignment: .top, spacing: 14) {
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: $viewModel.watchlistText)
+                        .font(.system(.body, design: .monospaced))
+                        .scrollContentBackground(.hidden)
+                        .background(Color(nsColor: .textBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                        )
+                        .help("Paste one player name per line. Matching uses entrant names, gamer tags, and common prefix forms.")
+
+                    if viewModel.watchlistText.isEmpty {
+                        Text("Tokido\nMenaRD\nKakeru")
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundStyle(.secondary.opacity(0.65))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 8)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .frame(minHeight: 116)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(viewModel.watchlistPreview.summaryText)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .help("Summary updates from the latest fetched data and the pasted watchlist.")
+
+                    Text("Save a focused file containing only matched entrants and their related sets.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 8) {
+                        Button {
+                            viewModel.saveWatchlistJSON()
+                        } label: {
+                            Label("JSON", systemImage: "doc.badge.gearshape")
+                        }
+                        .disabled(!viewModel.canSaveWatchlistScope)
+                        .help("Save watchlist-scoped structured data as JSON.")
+
+                        Button {
+                            viewModel.saveWatchlistMarkdown()
+                        } label: {
+                            Label("Markdown", systemImage: "doc.plaintext")
+                        }
+                        .disabled(!viewModel.canSaveWatchlistScope)
+                        .help("Save a compact watchlist report as Markdown.")
+                    }
+                    .controlSize(.small)
+                }
+                .frame(width: 245, alignment: .topLeading)
+            }
         }
     }
 
