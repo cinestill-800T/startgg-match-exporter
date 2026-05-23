@@ -74,7 +74,7 @@ The `Config` button reveals this file in Finder. It includes explanatory `_notes
 - retry count
 - HTTP 429 and 5xx retry waits
 
-For authenticated mode, the default request interval is `1.2` seconds, roughly 50 requests per minute. If exports are stable, you can gradually move toward `0.8`. If HTTP 429 appears, increase the interval or return `concurrentRequests` to `1`.
+For authenticated mode, the default request interval is `0.76` seconds, roughly 79 requests per minute. This is intentionally close to start.gg's documented average limit of 80 requests per minute. The default page sizes are also speed-oriented: `setPageSize` 45, `entrantPageSize` 150, and `standingPageSize` 45. If HTTP 429 appears, increase the interval to `0.9` or `1.2`, or return `concurrentRequests` to `1`. If a 1000 object complexity error appears, lower `setPageSize` and `standingPageSize`.
 
 The generated `_notes` text is written in Japanese. If an older English config file already exists, the app refreshes only the explanatory `_notes` while preserving your numeric tuning values.
 

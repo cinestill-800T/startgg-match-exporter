@@ -18,10 +18,12 @@ struct ExportConfigurationTests {
     func defaultOfficialConfigurationStaysBelowRateLimit() {
         let options = ExportConfiguration.defaultConfiguration.options(for: .authenticatedFast)
 
-        #expect(options.minimumRequestIntervalSeconds >= 0.8)
-        #expect(options.concurrentPageRequests == 1)
-        #expect(options.setPageSize <= 10)
-        #expect(options.standingPageSize <= 10)
+        #expect(options.minimumRequestIntervalSeconds >= 0.75)
+        #expect(options.minimumRequestIntervalSeconds < 0.8)
+        #expect(options.concurrentPageRequests == 2)
+        #expect(options.setPageSize == 45)
+        #expect(options.entrantPageSize == 150)
+        #expect(options.standingPageSize == 45)
     }
 
     @Test("Config clamps unsafe values")
@@ -69,5 +71,28 @@ struct ExportConfigurationTests {
         #expect(refreshed.officialAPI.minimumRequestIntervalSeconds == 0.9)
         #expect(refreshed.officialAPI.concurrentRequests == 2)
         #expect(refreshed.publicAPI.setPageSize == 25)
+    }
+
+    @Test("Refreshing notes migrates previous default tuning")
+    func refreshingNotesMigratesPreviousDefaultTuning() {
+        var config = ExportConfiguration.defaultConfiguration
+        config.officialAPI.setPageSize = 10
+        config.officialAPI.entrantPageSize = 25
+        config.officialAPI.standingPageSize = 10
+        config.officialAPI.minimumRequestIntervalSeconds = 1.2
+        config.officialAPI.concurrentRequests = 1
+        config.publicAPI.setPageSize = 50
+        config.publicAPI.entrantPageSize = 100
+        config.publicAPI.minimumRequestIntervalSeconds = 0.8
+
+        let refreshed = config.refreshingNotes()
+
+        #expect(refreshed.officialAPI.setPageSize == ExportConfiguration.defaultConfiguration.officialAPI.setPageSize)
+        #expect(refreshed.officialAPI.entrantPageSize == ExportConfiguration.defaultConfiguration.officialAPI.entrantPageSize)
+        #expect(refreshed.officialAPI.minimumRequestIntervalSeconds == ExportConfiguration.defaultConfiguration.officialAPI.minimumRequestIntervalSeconds)
+        #expect(refreshed.officialAPI.concurrentRequests == ExportConfiguration.defaultConfiguration.officialAPI.concurrentRequests)
+        #expect(refreshed.publicAPI.setPageSize == ExportConfiguration.defaultConfiguration.publicAPI.setPageSize)
+        #expect(refreshed.publicAPI.entrantPageSize == ExportConfiguration.defaultConfiguration.publicAPI.entrantPageSize)
+        #expect(refreshed.publicAPI.minimumRequestIntervalSeconds == ExportConfiguration.defaultConfiguration.publicAPI.minimumRequestIntervalSeconds)
     }
 }

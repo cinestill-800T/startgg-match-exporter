@@ -68,26 +68,28 @@ struct ExportEncodingTests {
         #expect(StartGGAPIMode.resolved(for: "abc123") == .authenticatedFast)
     }
 
-    @Test("Uses distinct mode defaults")
-    func usesModeDefaults() {
+    @Test("Uses aggressive authenticated defaults")
+    func usesAggressiveAuthenticatedDefaults() {
         let fast = ExportOptions.defaults(for: .authenticatedFast)
         let safe = ExportOptions.defaults(for: .publicSafe)
 
-        #expect(fast.concurrentPageRequests == 1)
+        #expect(fast.concurrentPageRequests == 2)
         #expect(fast.setPageSize < safe.setPageSize)
         #expect(fast.standingPageSize < safe.standingPageSize)
-        #expect(fast.minimumRequestIntervalSeconds > safe.minimumRequestIntervalSeconds)
+        #expect(fast.minimumRequestIntervalSeconds == 0.76)
+        #expect(safe.minimumRequestIntervalSeconds == 0.76)
     }
 
-    @Test("Keeps official API page sizes under object caps")
-    func keepsOfficialAPIPageSizesUnderObjectCaps() {
+    @Test("Keeps official API defaults near documented thresholds")
+    func keepsOfficialAPIDefaultsNearDocumentedThresholds() {
         let fast = ExportOptions.defaults(for: .authenticatedFast)
 
-        #expect(fast.setPageSize <= 10)
-        #expect(fast.entrantPageSize <= 25)
-        #expect(fast.standingPageSize <= 10)
-        #expect(fast.concurrentPageRequests == 1)
-        #expect(fast.minimumRequestIntervalSeconds >= 0.8)
+        #expect(fast.setPageSize == 45)
+        #expect(fast.entrantPageSize == 150)
+        #expect(fast.standingPageSize == 45)
+        #expect(fast.concurrentPageRequests == 2)
+        #expect(fast.minimumRequestIntervalSeconds >= 0.75)
+        #expect(fast.minimumRequestIntervalSeconds < 0.8)
     }
 
     @Test("Uses official API compatible event summary query")
