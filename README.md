@@ -54,7 +54,7 @@ Matching is mechanical and transparent. The app does not infer nationality, team
 
 ## Local Cache
 
-The app caches completed exports in Application Support and reuses them for the same event URL and connection mode. Use `Refresh` to ignore the cache and fetch fresh data from start.gg.
+The app caches completed exports in Application Support and reuses them for the same event URL and connection mode. Fetching with cache enabled uses the cache as a base, skips phases whose cached sets are all completed, and updates the remaining phases. Use `Refresh` to ignore the cache and fetch fresh data from start.gg.
 
 ## JSON Shape
 

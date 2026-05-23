@@ -248,7 +248,7 @@ enum WatchlistScopeBuilder {
             for set in phase.sets {
                 for slot in set.slots {
                     if let entrant = slot.entrant {
-                        byId[entrant.id] = entrant
+                        byId[entrant.id] = merge(existing: byId[entrant.id], incoming: entrant)
                     }
                 }
             }
@@ -259,6 +259,16 @@ enum WatchlistScopeBuilder {
             }
         }
         return byId.values.sorted { ($0.name ?? $0.id.value) < ($1.name ?? $1.id.value) }
+    }
+
+    private static func merge(existing: Entrant?, incoming: Entrant) -> Entrant {
+        guard let existing else {
+            return incoming
+        }
+        if existing.participants?.isEmpty == false {
+            return existing
+        }
+        return incoming.participants?.isEmpty == false ? incoming : existing
     }
 
     private static func bestMatches(for query: String, entrants: [Entrant]) -> [EntrantMatch] {

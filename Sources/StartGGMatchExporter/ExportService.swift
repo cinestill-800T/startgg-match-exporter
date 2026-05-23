@@ -16,7 +16,7 @@ struct ExportOptions: Sendable {
                 setPageSize: 10,
                 entrantPageSize: 25,
                 standingPageSize: 10,
-                minimumRequestIntervalSeconds: 2.0,
+                minimumRequestIntervalSeconds: 3.0,
                 concurrentPageRequests: 1
             )
         case .publicSafe:
@@ -73,11 +73,16 @@ final class ExportService: @unchecked Sendable {
     }
 
     func export(from inputURL: String, token: String) async throws -> ExportDocument {
+        return try await export(from: inputURL, token: token, cachedDocument: nil)
+    }
+
+    func export(from inputURL: String, token: String, cachedDocument: ExportDocument?) async throws -> ExportDocument {
         let eventSlug = try StartGGURLParser.eventSlug(from: inputURL)
         let mode = StartGGAPIMode.resolved(for: token)
         let client = StartGGClient(token: token, mode: mode)
         let options = optionOverride ?? ExportOptions.defaults(for: mode)
         let throttler = RequestThrottler(minimumInterval: options.minimumRequestIntervalSeconds)
+        let usableCache = cachedDocument?.source.eventSlug == eventSlug && cachedDocument?.source.apiMode == mode.rawValue ? cachedDocument : nil
 
         await progress(ExportProgress(stage: "event", detail: "Loading event summary with \(mode.title)", current: 0, total: nil))
         let eventData: EventSummaryData = try await Self.send(
@@ -92,14 +97,39 @@ final class ExportService: @unchecked Sendable {
             throw StartGGClientError.missingData
         }
 
-        let fetchedEntrants = try await fetchEntrants(eventId: event.id, client: client, throttler: throttler, options: options)
-        let fetchedStandings = try await fetchStandings(eventId: event.id, client: client, throttler: throttler, options: options)
+        let fetchedEntrants: [Entrant]
+        if let cachedEntrants = usableCache?.entrants, !cachedEntrants.isEmpty {
+            fetchedEntrants = cachedEntrants
+            await progress(ExportProgress(stage: "entrants", detail: "Using cached entrants", current: 1, total: 1))
+        } else {
+            fetchedEntrants = try await fetchEntrants(eventId: event.id, client: client, throttler: throttler, options: options)
+        }
+
+        let fetchedStandings: [Standing]
+        if let cachedStandings = usableCache?.standings, !cachedStandings.isEmpty {
+            fetchedStandings = cachedStandings
+            await progress(ExportProgress(stage: "standings", detail: "Using cached standings", current: 1, total: 1))
+        } else {
+            fetchedStandings = try await fetchStandings(eventId: event.id, client: client, throttler: throttler, options: options)
+        }
 
         var phaseExports: [PhaseExport] = []
         for (index, phase) in event.phases.enumerated() {
             try Task.checkCancellation()
-            let sets = try await fetchSets(phase: phase, client: client, throttler: throttler, options: options, phaseIndex: index, phaseTotal: event.phases.count)
-            phaseExports.append(makePhaseExport(phase: phase, sets: sets))
+            if let cachedPhase = usableCache?.phases.first(where: { $0.id == phase.id }), shouldReuse(cachedPhase: cachedPhase) {
+                await progress(
+                    ExportProgress(
+                        stage: "sets",
+                        detail: "Using cached completed \(phase.name ?? phase.id.value)",
+                        current: index + 1,
+                        total: event.phases.count
+                    )
+                )
+                phaseExports.append(makePhaseExport(phase: phase, sets: cachedPhase.sets.map(SetNode.init)))
+            } else {
+                let sets = try await fetchSets(phase: phase, client: client, throttler: throttler, options: options, phaseIndex: index, phaseTotal: event.phases.count)
+                phaseExports.append(makePhaseExport(phase: phase, sets: sets))
+            }
         }
 
         let allSets = phaseExports.flatMap(\.sets)
@@ -470,5 +500,9 @@ final class ExportService: @unchecked Sendable {
             phaseGroups: groupSummaries,
             sets: exportSets
         )
+    }
+
+    private func shouldReuse(cachedPhase: PhaseExport) -> Bool {
+        !cachedPhase.sets.isEmpty && cachedPhase.sets.allSatisfy { $0.state == 3 }
     }
 }

@@ -49,6 +49,7 @@ enum StartGGClientError: LocalizedError {
     case missingToken
     case invalidHTTPStatus(Int, String)
     case graphQLErrors([GraphQLError])
+    case rateLimited(String)
     case missingData
 
     var errorDescription: String? {
@@ -59,6 +60,8 @@ enum StartGGClientError: LocalizedError {
             return "start.gg returned HTTP \(status): \(body)"
         case .graphQLErrors(let errors):
             return errors.map(\.message).joined(separator: "\n")
+        case .rateLimited(let message):
+            return message
         case .missingData:
             return "start.gg returned no data."
         }
@@ -97,11 +100,13 @@ final class StartGGClient: Sendable {
 
         var attempt = 0
         var lastError: Error?
+        var lastStatus: Int?
         while attempt < 8 {
             do {
                 return try await sendOnce(requestBody: requestBody)
             } catch StartGGClientError.invalidHTTPStatus(let status, let body) where status == 429 || (500..<600).contains(status) {
                 lastError = StartGGClientError.invalidHTTPStatus(status, body)
+                lastStatus = status
                 let seconds = retryDelaySeconds(for: status, attempt: attempt)
                 let delay = UInt64(seconds * 1_000_000_000)
                 try await Task.sleep(nanoseconds: delay)
@@ -111,6 +116,9 @@ final class StartGGClient: Sendable {
             }
         }
 
+        if lastStatus == 429 {
+            throw StartGGClientError.rateLimited("start.gg rate limit is still active after waiting and retrying. Use cached data for now, or wait several minutes before refreshing.")
+        }
         if let lastError {
             throw lastError
         }
@@ -119,7 +127,7 @@ final class StartGGClient: Sendable {
 
     private func retryDelaySeconds(for status: Int, attempt: Int) -> Double {
         if status == 429 {
-            return min(90, 20 + Double(attempt * 10))
+            return min(180, 30 + Double(attempt * 30))
         }
         return min(30, pow(2.0, Double(attempt)) * 1.5)
     }

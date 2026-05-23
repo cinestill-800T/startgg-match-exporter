@@ -109,6 +109,26 @@ final class AppViewModel: ObservableObject {
                 }
             }
 
+            let cachedDocument: ExportDocument?
+            if !forceRefresh, self.useCache {
+                do {
+                    let slug = try StartGGURLParser.eventSlug(from: inputURL)
+                    cachedDocument = ExportCache.cachedDocument(for: slug, mode: mode)
+                    if cachedDocument != nil {
+                        await MainActor.run {
+                            self.appendLog("Using cache as the base for incremental update.")
+                        }
+                    }
+                } catch {
+                    cachedDocument = nil
+                    await MainActor.run {
+                        self.appendLog("Cache lookup skipped: \(error.localizedDescription)")
+                    }
+                }
+            } else {
+                cachedDocument = nil
+            }
+
             let service = ExportService(options: ExportOptions.defaults(for: mode)) { [weak self] progress in
                 await MainActor.run {
                     self?.progressMessage = progress.total.map {
@@ -118,7 +138,7 @@ final class AppViewModel: ObservableObject {
             }
 
             do {
-                let document = try await service.export(from: inputURL, token: inputToken)
+                let document = try await service.export(from: inputURL, token: inputToken, cachedDocument: cachedDocument)
                 await MainActor.run {
                     ExportCache.save(document)
                     self.apply(document: document, mode: mode)
@@ -137,9 +157,16 @@ final class AppViewModel: ObservableObject {
                 }
             } catch {
                 await MainActor.run {
-                    self.isWorking = false
-                    self.progressMessage = "Failed"
-                    self.appendLog("Export failed: \(error.localizedDescription)")
+                    if let cachedDocument {
+                        self.apply(document: cachedDocument, mode: mode)
+                        self.progressMessage = "Loaded cache after refresh failed."
+                        self.appendLog("Export failed: \(error.localizedDescription)")
+                        self.appendLog("Fell back to cached data.")
+                    } else {
+                        self.isWorking = false
+                        self.progressMessage = "Failed"
+                        self.appendLog("Export failed: \(error.localizedDescription)")
+                    }
                 }
             }
         }

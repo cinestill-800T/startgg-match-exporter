@@ -128,16 +128,6 @@ enum StartGGQueries {
               id
               name
               initialSeedNum
-              participants {
-                id
-                gamerTag
-                prefix
-                player {
-                  id
-                  gamerTag
-                  prefix
-                }
-              }
             }
           }
         }
@@ -178,16 +168,6 @@ enum StartGGQueries {
                 id
                 name
                 initialSeedNum
-                participants {
-                  id
-                  gamerTag
-                  prefix
-                  player {
-                    id
-                    gamerTag
-                    prefix
-                  }
-                }
               }
               standing {
                 placement

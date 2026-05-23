@@ -126,6 +126,49 @@ struct SetNode: Codable, Hashable, Sendable {
     var updatedAt: Int?
     var phaseGroup: PhaseGroupRef?
     var slots: [SetSlot]
+
+    init(
+        id: FlexibleID,
+        identifier: String?,
+        state: Int?,
+        round: Int?,
+        fullRoundText: String?,
+        displayScore: String?,
+        winnerId: FlexibleID?,
+        completedAt: Int?,
+        startedAt: Int?,
+        updatedAt: Int?,
+        phaseGroup: PhaseGroupRef?,
+        slots: [SetSlot]
+    ) {
+        self.id = id
+        self.identifier = identifier
+        self.state = state
+        self.round = round
+        self.fullRoundText = fullRoundText
+        self.displayScore = displayScore
+        self.winnerId = winnerId
+        self.completedAt = completedAt
+        self.startedAt = startedAt
+        self.updatedAt = updatedAt
+        self.phaseGroup = phaseGroup
+        self.slots = slots
+    }
+
+    init(_ exportSet: ExportSet) {
+        id = exportSet.id
+        identifier = exportSet.identifier
+        state = exportSet.state
+        round = exportSet.round
+        fullRoundText = exportSet.fullRoundText
+        displayScore = exportSet.displayScore
+        winnerId = exportSet.winnerId
+        completedAt = exportSet.completedAt
+        startedAt = exportSet.startedAt
+        updatedAt = exportSet.updatedAt
+        phaseGroup = exportSet.phaseGroup
+        slots = exportSet.slots
+    }
 }
 
 struct ExportSet: Codable, Hashable, Sendable {
