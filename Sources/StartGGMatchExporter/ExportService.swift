@@ -10,10 +10,12 @@ struct ExportOptions: Sendable {
     static func defaults(for mode: StartGGAPIMode) -> ExportOptions {
         switch mode {
         case .authenticatedFast:
+            // The official API allows at most 1000 returned objects per request.
+            // Nested set and standing queries expand quickly, so keep page sizes conservative.
             ExportOptions(
-                setPageSize: 200,
-                entrantPageSize: 200,
-                standingPageSize: 200,
+                setPageSize: 40,
+                entrantPageSize: 150,
+                standingPageSize: 100,
                 minimumRequestIntervalSeconds: 0.18,
                 concurrentPageRequests: 4
             )
