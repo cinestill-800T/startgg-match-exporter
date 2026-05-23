@@ -77,4 +77,15 @@ struct ExportEncodingTests {
         #expect(fast.setPageSize > safe.setPageSize)
         #expect(fast.minimumRequestIntervalSeconds < safe.minimumRequestIntervalSeconds)
     }
+
+    @Test("Uses official API compatible event summary query")
+    func usesOfficialAPICompatibleEventSummaryQuery() {
+        let fastQuery = StartGGQueries.eventSummary(for: .authenticatedFast)
+        let safeQuery = StartGGQueries.eventSummary(for: .publicSafe)
+
+        #expect(!fastQuery.contains("percentComplete"))
+        #expect(!fastQuery.contains("destPhases"))
+        #expect(safeQuery.contains("percentComplete"))
+        #expect(safeQuery.contains("destPhases"))
+    }
 }

@@ -1,7 +1,46 @@
 import Foundation
 
 enum StartGGQueries {
-    static let eventSummary = """
+    static func eventSummary(for mode: StartGGAPIMode) -> String {
+        switch mode {
+        case .authenticatedFast:
+            authenticatedEventSummary
+        case .publicSafe:
+            publicEventSummary
+        }
+    }
+
+    static let authenticatedEventSummary = """
+    query EventSummary($slug: String!) {
+      event(slug: $slug) {
+        id
+        name
+        slug
+        numEntrants
+        type
+        videogame {
+          id
+          name
+        }
+        tournament {
+          id
+          name
+          slug
+          timezone
+        }
+        phases {
+          id
+          name
+          state
+          groupCount
+          bracketType
+          numSeeds
+        }
+      }
+    }
+    """
+
+    static let publicEventSummary = """
     query EventSummary($slug: String!) {
       event(slug: $slug) {
         id

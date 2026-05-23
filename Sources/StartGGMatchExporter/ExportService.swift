@@ -82,7 +82,7 @@ final class ExportService: @unchecked Sendable {
             client: client,
             throttler: throttler,
             operationName: "EventSummary",
-            query: StartGGQueries.eventSummary,
+            query: StartGGQueries.eventSummary(for: mode),
             variables: ["slug": .string(eventSlug)]
         )
 
