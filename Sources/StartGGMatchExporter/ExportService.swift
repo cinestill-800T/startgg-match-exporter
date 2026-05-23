@@ -13,10 +13,10 @@ struct ExportOptions: Sendable {
             // The official API allows at most 1000 returned objects per request.
             // Nested set and standing queries expand quickly, so keep page sizes conservative.
             ExportOptions(
-                setPageSize: 40,
-                entrantPageSize: 150,
-                standingPageSize: 100,
-                minimumRequestIntervalSeconds: 0.18,
+                setPageSize: 10,
+                entrantPageSize: 50,
+                standingPageSize: 25,
+                minimumRequestIntervalSeconds: 0.75,
                 concurrentPageRequests: 4
             )
         case .publicSafe:

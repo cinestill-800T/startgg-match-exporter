@@ -38,7 +38,7 @@ The exporter accepts normal event URLs and bracket URLs. It normalizes them to a
 
 The app chooses the mode automatically:
 
-- `Fast Mode`: enabled when an API token is present. Uses the official API, mode-specific page sizes, parallel page reads, request throttling, and retry handling.
+- `Fast Mode`: enabled when an API token is present. Uses the official API, conservative page sizes, parallel page reads, request throttling, and retry handling.
 - `Public Safe Mode`: enabled when the token field is blank. Uses public web data with conservative pacing. This is convenient for quick checks, but the official API is preferred for sustained exports.
 
 ## Watchlist Export
