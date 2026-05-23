@@ -1,0 +1,144 @@
+import AppKit
+import Foundation
+
+@MainActor
+final class AppViewModel: ObservableObject {
+    @Published var token: String = ""
+    @Published var eventURL: String = ""
+    @Published var isWorking = false
+    @Published var progressMessage = "Ready"
+    @Published var logText = ""
+    @Published var lastDocument: ExportDocument?
+    @Published var lastOutputURL: URL?
+
+    private var currentTask: Task<Void, Never>?
+
+    init() {
+        token = (try? KeychainTokenStore.load()) ?? ""
+    }
+
+    var canStart: Bool {
+        !isWorking &&
+            !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !eventURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func saveToken() {
+        do {
+            try KeychainTokenStore.save(token)
+            appendLog("Token saved to Keychain.")
+        } catch {
+            appendLog("Token save failed: \(error.localizedDescription)")
+        }
+    }
+
+    func fetch() {
+        guard canStart else {
+            appendLog("Enter a start.gg event URL and API token first.")
+            return
+        }
+
+        saveToken()
+        isWorking = true
+        lastDocument = nil
+        lastOutputURL = nil
+        progressMessage = "Starting export"
+        logText = ""
+
+        let inputURL = eventURL
+        let inputToken = token
+
+        currentTask = Task { [weak self] in
+            guard let self else { return }
+            let service = ExportService { [weak self] progress in
+                await MainActor.run {
+                    self?.progressMessage = progress.total.map {
+                        "\(progress.stage): \(progress.detail) (\(progress.current)/\($0))"
+                    } ?? "\(progress.stage): \(progress.detail)"
+                }
+            }
+
+            do {
+                let document = try await service.export(from: inputURL, token: inputToken)
+                await MainActor.run {
+                    self.lastDocument = document
+                    self.isWorking = false
+                    self.progressMessage = "Fetched \(document.summary.setCount) sets."
+                    self.appendLog("Fetched event: \(document.event.name ?? document.event.id.value)")
+                    self.appendLog("Entrants: \(document.summary.entrantCount)")
+                    self.appendLog("Standings: \(document.summary.standingCount)")
+                    self.appendLog("Sets: \(document.summary.setCount)")
+                    self.appendLog("Completed sets: \(document.summary.completedSetCount)")
+                    self.appendLog("Pending sets: \(document.summary.pendingSetCount)")
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    self.isWorking = false
+                    self.progressMessage = "Cancelled"
+                    self.appendLog("Export cancelled.")
+                }
+            } catch {
+                await MainActor.run {
+                    self.isWorking = false
+                    self.progressMessage = "Failed"
+                    self.appendLog("Export failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    func cancel() {
+        currentTask?.cancel()
+        currentTask = nil
+    }
+
+    func saveJSON() {
+        guard let lastDocument else {
+            appendLog("Fetch data before saving JSON.")
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.canCreateDirectories = true
+        let name = sanitizedFileName(lastDocument.event.name ?? "startgg-event")
+        panel.nameFieldStringValue = "\(name)-matches.json"
+
+        guard panel.runModal() == .OK, let url = panel.url else {
+            appendLog("Save cancelled.")
+            return
+        }
+
+        do {
+            let data = try ExportService().encode(lastDocument)
+            try data.write(to: url, options: .atomic)
+            lastOutputURL = url
+            appendLog("Saved JSON: \(url.path)")
+        } catch {
+            appendLog("Save failed: \(error.localizedDescription)")
+        }
+    }
+
+    func fetchAndSave() {
+        fetch()
+    }
+
+    private func appendLog(_ line: String) {
+        if logText.isEmpty {
+            logText = line
+        } else {
+            logText += "\n\(line)"
+        }
+    }
+
+    private func sanitizedFileName(_ name: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        return name
+            .unicodeScalars
+            .map { allowed.contains($0) ? Character($0) : "-" }
+            .reduce(into: "") { $0.append($1) }
+            .replacingOccurrences(of: "--+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+            .lowercased()
+    }
+}
