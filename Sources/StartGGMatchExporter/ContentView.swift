@@ -114,9 +114,21 @@ struct ContentView: View {
             }
             .controlSize(.small)
 
-            Toggle("Use local cache", isOn: $viewModel.useCache)
-                .toggleStyle(.checkbox)
-                .help("When enabled, the app reuses the latest export for the same event and mode instead of calling start.gg again.")
+            HStack(spacing: 8) {
+                Toggle("Use local cache", isOn: $viewModel.useCache)
+                    .toggleStyle(.checkbox)
+                    .help("When enabled, the app uses cached entrants, standings, and completed phases as a base, then fetches missing or still-active phases.")
+
+                Spacer()
+
+                Button {
+                    viewModel.revealConfig()
+                } label: {
+                    Label("Config", systemImage: "slider.horizontal.3")
+                }
+                .controlSize(.small)
+                .help("Open the generated config.json. Use it to tune request pacing, page sizes, concurrency, and retry waits.")
+            }
         }
     }
 
@@ -157,7 +169,7 @@ struct ContentView: View {
                     } label: {
                         Label("Cancel", systemImage: "stop.circle")
                     }
-                    .help("Cancel the current export.")
+                    .help("Cancel the current export. Finished phases are kept in the local cache and can be reused by the next fetch.")
                 }
             }
         }

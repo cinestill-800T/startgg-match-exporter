@@ -6,28 +6,10 @@ struct ExportOptions: Sendable {
     var standingPageSize: Int = 100
     var minimumRequestIntervalSeconds: TimeInterval = 0.8
     var concurrentPageRequests: Int = 1
+    var retryPolicy: StartGGRetryPolicy = .defaultPolicy
 
     static func defaults(for mode: StartGGAPIMode) -> ExportOptions {
-        switch mode {
-        case .authenticatedFast:
-            // The official API allows at most 1000 returned objects per request.
-            // Nested set and standing queries expand quickly, so keep page sizes conservative.
-            ExportOptions(
-                setPageSize: 10,
-                entrantPageSize: 25,
-                standingPageSize: 10,
-                minimumRequestIntervalSeconds: 3.0,
-                concurrentPageRequests: 1
-            )
-        case .publicSafe:
-            ExportOptions(
-                setPageSize: 50,
-                entrantPageSize: 100,
-                standingPageSize: 100,
-                minimumRequestIntervalSeconds: 0.8,
-                concurrentPageRequests: 1
-            )
-        }
+        ExportConfiguration.defaultConfiguration.options(for: mode)
     }
 }
 
@@ -46,7 +28,7 @@ actor RequestThrottler {
         self.minimumInterval = minimumInterval
     }
 
-    func waitIfNeeded() async {
+    func waitIfNeeded() async throws {
         let now = Date()
         guard let nextRequestAt else {
             self.nextRequestAt = now.addingTimeInterval(minimumInterval)
@@ -55,7 +37,7 @@ actor RequestThrottler {
 
         if now < nextRequestAt {
             let delay = UInt64(nextRequestAt.timeIntervalSince(now) * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: delay)
+            try await Task.sleep(nanoseconds: delay)
         }
         self.nextRequestAt = Date().addingTimeInterval(minimumInterval)
     }
@@ -63,13 +45,20 @@ actor RequestThrottler {
 
 final class ExportService: @unchecked Sendable {
     typealias ProgressHandler = @Sendable (ExportProgress) async -> Void
+    typealias PartialDocumentHandler = @Sendable (ExportDocument) async -> Void
 
     private let optionOverride: ExportOptions?
     private let progress: ProgressHandler
+    private let partialDocumentHandler: PartialDocumentHandler
 
-    init(options: ExportOptions? = nil, progress: @escaping ProgressHandler = { _ in }) {
+    init(
+        options: ExportOptions? = nil,
+        progress: @escaping ProgressHandler = { _ in },
+        partialDocumentHandler: @escaping PartialDocumentHandler = { _ in }
+    ) {
         optionOverride = options
         self.progress = progress
+        self.partialDocumentHandler = partialDocumentHandler
     }
 
     func export(from inputURL: String, token: String) async throws -> ExportDocument {
@@ -79,8 +68,8 @@ final class ExportService: @unchecked Sendable {
     func export(from inputURL: String, token: String, cachedDocument: ExportDocument?) async throws -> ExportDocument {
         let eventSlug = try StartGGURLParser.eventSlug(from: inputURL)
         let mode = StartGGAPIMode.resolved(for: token)
-        let client = StartGGClient(token: token, mode: mode)
         let options = optionOverride ?? ExportOptions.defaults(for: mode)
+        let client = StartGGClient(token: token, mode: mode, retryPolicy: options.retryPolicy)
         let throttler = RequestThrottler(minimumInterval: options.minimumRequestIntervalSeconds)
         let usableCache = cachedDocument?.source.eventSlug == eventSlug && cachedDocument?.source.apiMode == mode.rawValue ? cachedDocument : nil
 
@@ -114,6 +103,19 @@ final class ExportService: @unchecked Sendable {
         }
 
         var phaseExports: [PhaseExport] = []
+        await partialDocumentHandler(
+            makeDocument(
+                inputURL: inputURL,
+                eventSlug: eventSlug,
+                client: client,
+                mode: mode,
+                event: event,
+                entrants: fetchedEntrants,
+                standings: fetchedStandings,
+                phases: phaseExports
+            )
+        )
+
         for (index, phase) in event.phases.enumerated() {
             try Task.checkCancellation()
             if let cachedPhase = usableCache?.phases.first(where: { $0.id == phase.id }), shouldReuse(cachedPhase: cachedPhase) {
@@ -130,28 +132,25 @@ final class ExportService: @unchecked Sendable {
                 let sets = try await fetchSets(phase: phase, client: client, throttler: throttler, options: options, phaseIndex: index, phaseTotal: event.phases.count)
                 phaseExports.append(makePhaseExport(phase: phase, sets: sets))
             }
-        }
 
-        let allSets = phaseExports.flatMap(\.sets)
-
-        return ExportDocument(
-            schemaVersion: 1,
-            fetchedAt: ISO8601DateFormatter().string(from: Date()),
-            source: ExportSource(
+            let partialDocument = makeDocument(
                 inputURL: inputURL,
                 eventSlug: eventSlug,
-                apiEndpoint: client.endpoint.absoluteString,
-                apiMode: mode.rawValue
-            ),
-            summary: ExportSummary(
-                phaseCount: event.phases.count,
-                entrantCount: fetchedEntrants.count,
-                standingCount: fetchedStandings.count,
-                setCount: allSets.count,
-                completedSetCount: allSets.filter { $0.state == 3 }.count,
-                pendingSetCount: allSets.filter { $0.state == 1 }.count,
-                startedSetCount: allSets.filter { $0.state == 2 || $0.state == 6 }.count
-            ),
+                client: client,
+                mode: mode,
+                event: event,
+                entrants: fetchedEntrants,
+                standings: fetchedStandings,
+                phases: phaseExports
+            )
+            await partialDocumentHandler(partialDocument)
+        }
+
+        return makeDocument(
+            inputURL: inputURL,
+            eventSlug: eventSlug,
+            client: client,
+            mode: mode,
             event: event,
             entrants: fetchedEntrants,
             standings: fetchedStandings,
@@ -165,6 +164,43 @@ final class ExportService: @unchecked Sendable {
         return try encoder.encode(document)
     }
 
+    private func makeDocument(
+        inputURL: String,
+        eventSlug: String,
+        client: StartGGClient,
+        mode: StartGGAPIMode,
+        event: EventSummary,
+        entrants: [Entrant],
+        standings: [Standing],
+        phases: [PhaseExport]
+    ) -> ExportDocument {
+        let allSets = phases.flatMap(\.sets)
+
+        return ExportDocument(
+            schemaVersion: 1,
+            fetchedAt: ISO8601DateFormatter().string(from: Date()),
+            source: ExportSource(
+                inputURL: inputURL,
+                eventSlug: eventSlug,
+                apiEndpoint: client.endpoint.absoluteString,
+                apiMode: mode.rawValue
+            ),
+            summary: ExportSummary(
+                phaseCount: event.phases.count,
+                entrantCount: entrants.count,
+                standingCount: standings.count,
+                setCount: allSets.count,
+                completedSetCount: allSets.filter { $0.state == 3 }.count,
+                pendingSetCount: allSets.filter { $0.state == 1 }.count,
+                startedSetCount: allSets.filter { $0.state == 2 || $0.state == 6 }.count
+            ),
+            event: event,
+            entrants: entrants,
+            standings: standings,
+            phases: phases
+        )
+    }
+
     private static func send<T: Decodable>(
         client: StartGGClient,
         throttler: RequestThrottler,
@@ -172,7 +208,7 @@ final class ExportService: @unchecked Sendable {
         query: String,
         variables: [String: GraphQLValue]
     ) async throws -> T {
-        await throttler.waitIfNeeded()
+        try await throttler.waitIfNeeded()
         return try await client.send(operationName: operationName, query: query, variables: variables)
     }
 

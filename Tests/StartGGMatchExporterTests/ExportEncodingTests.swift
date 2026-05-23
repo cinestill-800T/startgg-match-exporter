@@ -87,7 +87,7 @@ struct ExportEncodingTests {
         #expect(fast.entrantPageSize <= 25)
         #expect(fast.standingPageSize <= 10)
         #expect(fast.concurrentPageRequests == 1)
-        #expect(fast.minimumRequestIntervalSeconds >= 2.0)
+        #expect(fast.minimumRequestIntervalSeconds >= 0.8)
     }
 
     @Test("Uses official API compatible event summary query")

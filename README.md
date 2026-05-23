@@ -54,7 +54,27 @@ Matching is mechanical and transparent. The app does not infer nationality, team
 
 ## Local Cache
 
-The app caches completed exports in Application Support and reuses them for the same event URL and connection mode. Fetching with cache enabled uses the cache as a base, skips phases whose cached sets are all completed, and updates the remaining phases. Use `Refresh` to ignore the cache and fetch fresh data from start.gg.
+The app caches exports in Application Support and reuses them for the same event URL and connection mode. Fetching with cache enabled uses the cache as a base, skips phases whose cached sets are all completed, and updates the remaining phases. During long exports, the app also saves partial cache snapshots after each phase. If you cancel an export, the next normal `Fetch Data` run can continue from the finished cached phases.
+
+Use `Refresh` to ignore the cache and fetch fresh data from start.gg.
+
+## Configuration
+
+The first fetch creates a local configuration file:
+
+```text
+~/Library/Application Support/StartGGMatchExporter/config.json
+```
+
+The `Config` button reveals this file in Finder. It includes explanatory `_notes` fields and can tune:
+
+- set, entrant, and standing page sizes
+- minimum request interval
+- concurrent page requests
+- retry count
+- HTTP 429 and 5xx retry waits
+
+For authenticated mode, the default request interval is `1.2` seconds, roughly 50 requests per minute. If exports are stable, you can gradually move toward `0.8`. If HTTP 429 appears, increase the interval or return `concurrentRequests` to `1`.
 
 ## JSON Shape
 
@@ -98,7 +118,7 @@ This app uses the official start.gg GraphQL API endpoint:
 https://api.start.gg/gql/alpha
 ```
 
-start.gg documents an average rate limit of 80 requests per 60 seconds and a 1000 object maximum per request. The app throttles requests and uses conservative page sizes.
+start.gg documents an average rate limit of 80 requests per 60 seconds and a 1000 object maximum per request. The app throttles requests, uses conservative page sizes, and writes local cache snapshots so repeated tournament updates avoid re-fetching completed phases.
 
 ## License
 

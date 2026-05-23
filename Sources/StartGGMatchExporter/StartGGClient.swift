@@ -1,5 +1,44 @@
 import Foundation
 
+struct StartGGRetryPolicy: Sendable, Equatable {
+    var maxRetries: Int
+    var rateLimitInitialPauseSeconds: TimeInterval
+    var rateLimitPauseIncrementSeconds: TimeInterval
+    var rateLimitMaxPauseSeconds: TimeInterval
+    var serverErrorInitialPauseSeconds: TimeInterval
+    var serverErrorMaxPauseSeconds: TimeInterval
+
+    static let defaultPolicy = StartGGRetryPolicy(
+        maxRetries: 8,
+        rateLimitInitialPauseSeconds: 45,
+        rateLimitPauseIncrementSeconds: 30,
+        rateLimitMaxPauseSeconds: 180,
+        serverErrorInitialPauseSeconds: 1.5,
+        serverErrorMaxPauseSeconds: 30
+    )
+
+    func clamped() -> StartGGRetryPolicy {
+        StartGGRetryPolicy(
+            maxRetries: max(1, min(maxRetries, 20)),
+            rateLimitInitialPauseSeconds: max(10, min(rateLimitInitialPauseSeconds, 600)),
+            rateLimitPauseIncrementSeconds: max(5, min(rateLimitPauseIncrementSeconds, 300)),
+            rateLimitMaxPauseSeconds: max(10, min(rateLimitMaxPauseSeconds, 900)),
+            serverErrorInitialPauseSeconds: max(0.5, min(serverErrorInitialPauseSeconds, 120)),
+            serverErrorMaxPauseSeconds: max(1, min(serverErrorMaxPauseSeconds, 300))
+        )
+    }
+
+    func delaySeconds(for status: Int, attempt: Int) -> Double {
+        let policy = clamped()
+        if status == 429 {
+            let delay = policy.rateLimitInitialPauseSeconds + Double(attempt) * policy.rateLimitPauseIncrementSeconds
+            return min(policy.rateLimitMaxPauseSeconds, delay)
+        }
+        let delay = pow(2.0, Double(attempt)) * policy.serverErrorInitialPauseSeconds
+        return min(policy.serverErrorMaxPauseSeconds, delay)
+    }
+}
+
 enum StartGGAPIMode: String, Codable, Sendable {
     case authenticatedFast
     case publicSafe
@@ -73,16 +112,19 @@ final class StartGGClient: Sendable {
     let mode: StartGGAPIMode
     private let token: String
     private let session: URLSession
+    private let retryPolicy: StartGGRetryPolicy
 
     init(
         token: String,
         mode: StartGGAPIMode? = nil,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        retryPolicy: StartGGRetryPolicy = .defaultPolicy
     ) {
         self.token = token.trimmingCharacters(in: .whitespacesAndNewlines)
         self.mode = mode ?? StartGGAPIMode.resolved(for: token)
         self.endpoint = self.mode.endpoint
         self.session = session
+        self.retryPolicy = retryPolicy.clamped()
     }
 
     func send<T: Decodable>(
@@ -101,13 +143,13 @@ final class StartGGClient: Sendable {
         var attempt = 0
         var lastError: Error?
         var lastStatus: Int?
-        while attempt < 8 {
+        while attempt < retryPolicy.maxRetries {
             do {
                 return try await sendOnce(requestBody: requestBody)
             } catch StartGGClientError.invalidHTTPStatus(let status, let body) where status == 429 || (500..<600).contains(status) {
                 lastError = StartGGClientError.invalidHTTPStatus(status, body)
                 lastStatus = status
-                let seconds = retryDelaySeconds(for: status, attempt: attempt)
+                let seconds = retryPolicy.delaySeconds(for: status, attempt: attempt)
                 let delay = UInt64(seconds * 1_000_000_000)
                 try await Task.sleep(nanoseconds: delay)
                 attempt += 1
@@ -123,13 +165,6 @@ final class StartGGClient: Sendable {
             throw lastError
         }
         throw StartGGClientError.missingData
-    }
-
-    private func retryDelaySeconds(for status: Int, attempt: Int) -> Double {
-        if status == 429 {
-            return min(180, 30 + Double(attempt * 30))
-        }
-        return min(30, pow(2.0, Double(attempt)) * 1.5)
     }
 
     private func sendOnce<T: Decodable>(requestBody: Data) async throws -> T {

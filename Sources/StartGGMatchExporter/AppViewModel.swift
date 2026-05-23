@@ -91,21 +91,14 @@ final class AppViewModel: ObservableObject {
 
         currentTask = Task { [weak self] in
             guard let self else { return }
-            if !forceRefresh, self.useCache {
-                do {
-                    let slug = try StartGGURLParser.eventSlug(from: inputURL)
-                    if let cached = ExportCache.cachedDocument(for: slug, mode: mode) {
-                        await MainActor.run {
-                            self.apply(document: cached, mode: mode)
-                            self.progressMessage = "Loaded cached export with \(cached.summary.setCount) sets."
-                            self.appendLog("Loaded cache for \(slug).")
-                        }
-                        return
-                    }
-                } catch {
-                    await MainActor.run {
-                        self.appendLog("Cache lookup skipped: \(error.localizedDescription)")
-                    }
+            let configurationResult = ExportConfigurationStore.loadOrCreate()
+            let options = configurationResult.configuration.options(for: mode)
+            await MainActor.run {
+                if let url = configurationResult.url {
+                    self.appendLog("Config: \(url.path)")
+                }
+                if let warning = configurationResult.warning {
+                    self.appendLog(warning)
                 }
             }
 
@@ -129,11 +122,16 @@ final class AppViewModel: ObservableObject {
                 cachedDocument = nil
             }
 
-            let service = ExportService(options: ExportOptions.defaults(for: mode)) { [weak self] progress in
+            let service = ExportService(options: options) { [weak self] progress in
                 await MainActor.run {
                     self?.progressMessage = progress.total.map {
                         "\(progress.stage): \(progress.detail) (\(progress.current)/\($0))"
                     } ?? "\(progress.stage): \(progress.detail)"
+                }
+            } partialDocumentHandler: { [weak self] partialDocument in
+                ExportCache.save(partialDocument)
+                await MainActor.run {
+                    self?.appendLog("Saved partial cache: \(partialDocument.phases.count)/\(partialDocument.event.phases.count) phases.")
                 }
             }
 
@@ -151,9 +149,15 @@ final class AppViewModel: ObservableObject {
                 }
             } catch is CancellationError {
                 await MainActor.run {
-                    self.isWorking = false
-                    self.progressMessage = "Cancelled"
-                    self.appendLog("Export cancelled.")
+                    if let partialDocument = self.cachedDocument(for: inputURL, mode: mode) {
+                        self.apply(document: partialDocument, mode: mode)
+                        self.progressMessage = "Cancelled. Partial cache is ready."
+                        self.appendLog("Export cancelled. The latest partial cache will be used on the next fetch.")
+                    } else {
+                        self.isWorking = false
+                        self.progressMessage = "Cancelled"
+                        self.appendLog("Export cancelled.")
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -260,6 +264,19 @@ final class AppViewModel: ObservableObject {
         fetch()
     }
 
+    func revealConfig() {
+        let result = ExportConfigurationStore.loadOrCreate()
+        if let warning = result.warning {
+            appendLog(warning)
+        }
+        guard let url = result.url else {
+            appendLog("Config file is unavailable.")
+            return
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+        appendLog("Config: \(url.path)")
+    }
+
     private func apply(document: ExportDocument, mode: StartGGAPIMode) {
         lastDocument = document
         isWorking = false
@@ -282,6 +299,13 @@ final class AppViewModel: ObservableObject {
             return nil
         }
         return WatchlistScopeBuilder.build(from: lastDocument, watchlistText: watchlistText)
+    }
+
+    private func cachedDocument(for inputURL: String, mode: StartGGAPIMode) -> ExportDocument? {
+        guard let slug = try? StartGGURLParser.eventSlug(from: inputURL) else {
+            return nil
+        }
+        return ExportCache.cachedDocument(for: slug, mode: mode)
     }
 
     private func appendLog(_ line: String) {
