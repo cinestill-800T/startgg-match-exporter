@@ -17,6 +17,7 @@ build_one() {
   rm -rf "$app_dir"
   mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
   cp "$binary_path" "$app_dir/Contents/MacOS/$APP_NAME"
+  cp "$ROOT_DIR/Resources/AppIcon.icns" "$app_dir/Contents/Resources/AppIcon.icns"
 
   cat > "$app_dir/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -29,6 +30,8 @@ build_one() {
   <string>$APP_NAME</string>
   <key>CFBundleIdentifier</key>
   <string>com.cinestill800t.StartGGMatchExporter</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
