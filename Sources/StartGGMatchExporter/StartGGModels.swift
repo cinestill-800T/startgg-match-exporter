@@ -253,21 +253,46 @@ struct ExportDocument: Codable, Hashable, Sendable {
     var phases: [PhaseExport]
 }
 
-enum StartGGSetState {
+enum StartGGSetState: Int, Sendable {
+    case pending = 1
+    case started = 2
+    case completed = 3
+    case called = 6
+
+    static func matches(_ state: Int?, _ expected: StartGGSetState) -> Bool {
+        state == expected.rawValue
+    }
+
+    static func isCompleted(_ state: Int?) -> Bool {
+        matches(state, .completed)
+    }
+
+    static func isPending(_ state: Int?) -> Bool {
+        matches(state, .pending)
+    }
+
+    static func isActive(_ state: Int?) -> Bool {
+        matches(state, .started) || matches(state, .called)
+    }
+
     static func label(for state: Int?) -> String {
-        switch state {
-        case 1:
-            return "pending"
-        case 2:
-            return "started"
-        case 3:
-            return "completed"
-        case 6:
-            return "called"
-        case .some(let value):
-            return "unknown_\(value)"
-        case .none:
+        guard let state else {
             return "unknown"
+        }
+
+        guard let setState = StartGGSetState(rawValue: state) else {
+            return "unknown_\(state)"
+        }
+
+        switch setState {
+        case .pending:
+            return "pending"
+        case .started:
+            return "started"
+        case .completed:
+            return "completed"
+        case .called:
+            return "called"
         }
     }
 }

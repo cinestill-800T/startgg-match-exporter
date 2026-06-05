@@ -134,6 +134,43 @@ struct ContentView: View {
 
     private var actionPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
+            panelTitle("AI Output")
+            Picker("Mode", selection: $viewModel.aiExportMode) {
+                ForEach(AIExportMode.allCases) { mode in
+                    Text(mode.title)
+                        .tag(mode)
+                        .help(mode.helpText)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .help(viewModel.aiExportModeHelpText)
+
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "questionmark.circle")
+                    .foregroundStyle(.secondary)
+                    .help(viewModel.aiExportModeHelpText)
+                Text(viewModel.aiExportMode.shortDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .help(viewModel.aiExportModeHelpText)
+            }
+            .animation(.easeOut(duration: 0.2), value: viewModel.aiExportMode)
+
+            if viewModel.aiExportMode == .watchlistFocus &&
+                viewModel.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Label("Watchlistに選手名を入力すると保存できます。", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .help(AIExportMode.watchlistFocus.helpText)
+                    .transition(.opacity)
+            }
+
+            Divider()
+                .padding(.vertical, 2)
+
             Button {
                 viewModel.fetch()
             } label: {
@@ -168,11 +205,12 @@ struct ContentView: View {
                     } label: {
                         Label("Analysis", systemImage: "tablecells")
                     }
-                    .disabled(viewModel.lastDocument == nil)
-                    .help("Save one Downloads folder with raw JSON plus a compact AI analysis packet.")
+                    .disabled(!viewModel.canSaveAnalysisPacket)
+                    .help(viewModel.aiExportModeHelpText)
                 }
             }
         }
+        .animation(.easeOut(duration: 0.2), value: viewModel.aiExportMode)
     }
 
     private var summaryPanel: some View {
@@ -216,7 +254,7 @@ struct ContentView: View {
     private var logPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             panelTitle("Activity")
-            TextEditor(text: $viewModel.logText)
+            TextEditor(text: .constant(viewModel.logText))
                 .font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden)
                 .background(Color(nsColor: .textBackgroundColor))

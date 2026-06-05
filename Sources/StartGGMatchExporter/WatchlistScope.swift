@@ -149,8 +149,8 @@ enum WatchlistScopeBuilder {
                 unmatchedQueryCount: queries.count - matchedQueryCount,
                 matchedEntrantCount: uniqueEntrantIds.count,
                 relatedSetCount: uniqueSetContexts.count,
-                completedRelatedSetCount: uniqueSetContexts.filter { $0.set.state == 3 }.count,
-                pendingRelatedSetCount: uniqueSetContexts.filter { $0.set.state != 3 }.count
+                completedRelatedSetCount: uniqueSetContexts.filter { StartGGSetState.isCompleted($0.set.state) }.count,
+                pendingRelatedSetCount: uniqueSetContexts.filter { !StartGGSetState.isCompleted($0.set.state) }.count
             ),
             queries: results
         )
@@ -370,7 +370,7 @@ enum WatchlistScopeBuilder {
 
         let wins = setContexts.filter { $0.result == "win" }.count
         let losses = setContexts.filter { $0.result == "loss" }.count
-        let pending = setContexts.filter { $0.set.state != 3 }.count
+        let pending = setContexts.filter { !StartGGSetState.isCompleted($0.set.state) }.count
         let latest = setContexts.sorted { lhs, rhs in
             if lhs.phaseIndex == rhs.phaseIndex {
                 return (lhs.set.updatedAt ?? lhs.set.completedAt ?? lhs.set.startedAt ?? 0) < (rhs.set.updatedAt ?? rhs.set.completedAt ?? rhs.set.startedAt ?? 0)
@@ -385,7 +385,7 @@ enum WatchlistScopeBuilder {
             score: match.score,
             standingPlacement: standingPlacement,
             setCount: setContexts.count,
-            completedSetCount: setContexts.filter { $0.set.state == 3 }.count,
+            completedSetCount: setContexts.filter { StartGGSetState.isCompleted($0.set.state) }.count,
             wins: wins,
             losses: losses,
             pendingSetCount: pending,
@@ -402,11 +402,11 @@ enum WatchlistScopeBuilder {
         let opponentScore = opponentSlots.compactMap { $0.standing?.stats?.score?.value?.value }.max()
         let result: String
 
-        if set.state == 3, let winnerId = set.winnerId {
+        if StartGGSetState.isCompleted(set.state), let winnerId = set.winnerId {
             result = winnerId == entrant.id ? "win" : "loss"
-        } else if set.state == 1 {
+        } else if StartGGSetState.isPending(set.state) {
             result = "pending"
-        } else if set.state == 2 || set.state == 6 {
+        } else if StartGGSetState.isActive(set.state) {
             result = "active"
         } else {
             result = "unknown"

@@ -69,6 +69,53 @@ struct AIExportTests {
         #expect(prompt.contains("Do not assume nationality"))
     }
 
+    @Test("Compact mode omits raw export and completed match rows")
+    func compactModeOmitsRawExportAndCompletedMatchRows() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("StartGGMatchExporterTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: folder)
+        }
+
+        let options = AIExportOptions(mode: .compact)
+        let files = try AIExportBuilder.writePacket(document: sampleDocument(), to: folder, options: options)
+        let names = Set(files.map(\.lastPathComponent))
+        let matches = try String(contentsOf: folder.appendingPathComponent("matches.jsonl"), encoding: .utf8)
+        let analysis = try String(contentsOf: folder.appendingPathComponent("analysis.json"), encoding: .utf8)
+
+        #expect(!names.contains("raw.json"))
+        #expect(names.contains("analysis.json"))
+        #expect(names.contains("matches.jsonl"))
+        #expect(matches.contains("\"setId\":\"s2\""))
+        #expect(!matches.contains("\"setId\":\"s1\""))
+        #expect(analysis.contains("Compact"))
+        #expect(!analysis.contains("Punk"))
+    }
+
+    @Test("Watchlist focus keeps watched player context only")
+    func watchlistFocusKeepsWatchedPlayerContextOnly() throws {
+        let options = AIExportOptions(mode: .watchlistFocus, watchlistText: "Tokido")
+        let packet = AIExportBuilder.build(from: sampleDocument(), options: options)
+        let matches = AIExportBuilder.normalizedMatches(from: sampleDocument(), options: options)
+
+        #expect(packet.entrants.map(\.entrantId).contains(FlexibleID("1")))
+        #expect(packet.entrants.map(\.entrantId).contains(FlexibleID("2")))
+        #expect(packet.entrants.map(\.entrantId).contains(FlexibleID("3")))
+        #expect(matches.map(\.setId) == [FlexibleID("s1"), FlexibleID("s2")])
+    }
+
+    @Test("Live focus scopes analysis to active context")
+    func liveFocusScopesAnalysisToActiveContext() throws {
+        let packet = AIExportBuilder.build(from: sampleDocument(), options: AIExportOptions(mode: .liveFocus))
+        let matchIds = AIExportBuilder.normalizedMatches(from: sampleDocument(), options: AIExportOptions(mode: .liveFocus)).map(\.setId)
+
+        #expect(packet.entrants.map(\.entrantId).contains(FlexibleID("1")))
+        #expect(packet.entrants.map(\.entrantId).contains(FlexibleID("2")))
+        #expect(packet.entrants.map(\.entrantId).contains(FlexibleID("3")))
+        #expect(packet.players.count == 3)
+        #expect(matchIds == [FlexibleID("s1"), FlexibleID("s2")])
+    }
+
     private func sampleDocument() -> ExportDocument {
         let tokido = entrant(id: "1", name: "ROHTO Z! Tokido", tag: "Tokido", seed: 1)
         let kakeru = entrant(id: "2", name: "IBUSHIGIN | Kakeru", tag: "Kakeru", seed: 2)

@@ -54,7 +54,16 @@ Matching is mechanical and transparent. The app does not infer nationality, team
 
 ## Analysis Pack
 
-After fetching an event, click `Analysis` to create a folder in Downloads with five files:
+After fetching an event, choose an AI output mode and click `Analysis` to create a folder in Downloads. Hover the AI output mode selector or the help icon in the app to read the Japanese explanation for each mode.
+
+Modes:
+
+- `Full（全件）`: writes the complete compatibility pack, including `raw.json` and all match rows.
+- `Live Focus（進行中中心）`: omits `raw.json`, keeps unfinished/active matches, and adds recent completed context for active players.
+- `Compact（軽量）`: omits `raw.json` and completed match detail rows, keeping compact history summaries plus current unfinished matches.
+- `Watchlist Focus（指定選手）`: requires Watchlist names and writes only those players' current/recent match context.
+
+Full mode creates five files:
 
 - `raw.json`: the complete original export
 - `analysis.json`: the primary normalized packet, including metadata, entrants, standings, matches, players, phase groups, and routes
@@ -62,7 +71,7 @@ After fetching an event, click `Analysis` to create a folder in Downloads with f
 - `summary.md`: compact human-readable overview
 - `analysis-prompt.md`: guidance for external AI analysis
 
-`Analysis` is the single export action. `raw.json` keeps the complete raw export, while `analysis.json` and `matches.jsonl` provide the AI-friendly normalized view. Route data is intentionally marked as partial because start.gg set data does not always include explicit prerequisite-slot graph edges. Use it as a prediction aid, not as a confirmed bracket path.
+`Analysis` is the single export action. `raw.json` keeps the complete raw export in Full mode, while `analysis.json` and `matches.jsonl` provide the AI-friendly normalized view. Lightweight modes intentionally do not write `raw.json`, so uploading the output folder to an AI assistant does not accidentally include the full tournament dump. Route data is intentionally marked as partial because start.gg set data does not always include explicit prerequisite-slot graph edges. Use it as a prediction aid, not as a confirmed bracket path.
 
 ## Local Cache
 
@@ -90,7 +99,7 @@ For authenticated mode, the default request interval is `0.76` seconds, roughly 
 
 The generated `_notes` text is written in Japanese. If an older English config file already exists, the app refreshes only the explanatory `_notes` while preserving your numeric tuning values.
 
-The app also remembers the last event URL you entered and restores it on the next launch. Save dialogs default to the macOS Downloads folder.
+The app also remembers the last event URL, Watchlist text, and local cache setting you entered and restores them on the next launch. Save dialogs default to the macOS Downloads folder.
 
 ## JSON Shape
 

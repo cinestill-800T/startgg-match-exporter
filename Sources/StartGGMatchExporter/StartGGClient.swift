@@ -108,6 +108,9 @@ enum StartGGClientError: LocalizedError {
 }
 
 final class StartGGClient: Sendable {
+    private static let requestEncoder = JSONEncoder()
+    private static let requestEncoderLock = NSLock()
+
     let endpoint: URL
     let mode: StartGGAPIMode
     private let token: String
@@ -136,7 +139,7 @@ final class StartGGClient: Sendable {
             throw StartGGClientError.missingToken
         }
 
-        let requestBody = try JSONEncoder().encode(
+        let requestBody = try Self.encodeRequestBody(
             GraphQLRequestBody(query: query, operationName: operationName, variables: variables)
         )
 
@@ -201,5 +204,11 @@ final class StartGGClient: Sendable {
             throw StartGGClientError.missingData
         }
         return responseData
+    }
+
+    private static func encodeRequestBody(_ body: GraphQLRequestBody) throws -> Data {
+        requestEncoderLock.lock()
+        defer { requestEncoderLock.unlock() }
+        return try requestEncoder.encode(body)
     }
 }

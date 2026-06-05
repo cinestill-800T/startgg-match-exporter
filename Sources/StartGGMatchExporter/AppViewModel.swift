@@ -12,27 +12,55 @@ final class AppViewModel: ObservableObject {
     }
     @Published var isWorking = false
     @Published var progressMessage = "Ready"
-    @Published var logText = ""
+    @Published private var logLines: [String] = []
     @Published var lastDocument: ExportDocument?
     @Published var lastOutputURL: URL?
     @Published var completedSetCount = 0
     @Published var pendingSetCount = 0
     @Published var totalSetCount = 0
     @Published var entrantCount = 0
-    @Published var watchlistText = ""
-    @Published var useCache = true
+    @Published var watchlistText = "" {
+        didSet {
+            UserDefaults.standard.set(watchlistText, forKey: Self.lastWatchlistTextDefaultsKey)
+        }
+    }
+    @Published var useCache = true {
+        didSet {
+            UserDefaults.standard.set(useCache, forKey: Self.useCacheDefaultsKey)
+        }
+    }
+    @Published var aiExportMode: AIExportMode = .full {
+        didSet {
+            UserDefaults.standard.set(aiExportMode.rawValue, forKey: Self.aiExportModeDefaultsKey)
+        }
+    }
 
     private var currentTask: Task<Void, Never>?
     private static let lastEventURLDefaultsKey = "lastEventURL"
+    private static let lastWatchlistTextDefaultsKey = "lastWatchlistText"
+    private static let useCacheDefaultsKey = "useCache"
+    private static let aiExportModeDefaultsKey = "aiExportMode"
 
     init() {
         token = (try? KeychainTokenStore.load()) ?? ""
         eventURL = UserDefaults.standard.string(forKey: Self.lastEventURLDefaultsKey) ?? ""
+        watchlistText = UserDefaults.standard.string(forKey: Self.lastWatchlistTextDefaultsKey) ?? ""
+        if UserDefaults.standard.object(forKey: Self.useCacheDefaultsKey) != nil {
+            useCache = UserDefaults.standard.bool(forKey: Self.useCacheDefaultsKey)
+        }
+        if let rawMode = UserDefaults.standard.string(forKey: Self.aiExportModeDefaultsKey),
+           let mode = AIExportMode(rawValue: rawMode) {
+            aiExportMode = mode
+        }
     }
 
     var canStart: Bool {
         !isWorking &&
             !eventURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var logText: String {
+        logLines.joined(separator: "\n")
     }
 
     var apiMode: StartGGAPIMode {
@@ -47,6 +75,20 @@ final class AppViewModel: ObservableObject {
         lastDocument != nil &&
             !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !isWorking
+    }
+
+    var canSaveAnalysisPacket: Bool {
+        guard lastDocument != nil, !isWorking else {
+            return false
+        }
+        if aiExportMode == .watchlistFocus {
+            return !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return true
+    }
+
+    var aiExportModeHelpText: String {
+        aiExportMode.helpText
     }
 
     func saveToken() {
@@ -89,7 +131,7 @@ final class AppViewModel: ObservableObject {
         totalSetCount = 0
         entrantCount = 0
         progressMessage = "Starting \(apiMode.title)"
-        logText = ""
+        logLines.removeAll()
 
         let inputURL = eventURL
         let inputToken = token
@@ -192,6 +234,11 @@ final class AppViewModel: ObservableObject {
             appendLog("Fetch data before saving an analysis pack.")
             return
         }
+        if aiExportMode == .watchlistFocus,
+           watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            appendLog("Watchlist Focus requires at least one player name in the Watchlist field.")
+            return
+        }
 
         guard let downloads = downloadsDirectory() else {
             appendLog("Downloads folder is unavailable.")
@@ -202,11 +249,16 @@ final class AppViewModel: ObservableObject {
             let eventName = sanitizedFileName(lastDocument.event.name ?? "startgg-event")
             let timestamp = timestampForFolderName()
             let folderURL = uniqueFolderURL(
-                baseURL: downloads.appendingPathComponent("\(eventName)-analysis-\(timestamp)", isDirectory: true)
+                baseURL: downloads.appendingPathComponent(
+                    "\(eventName)-analysis-\(aiExportMode.folderNameComponent)-\(timestamp)",
+                    isDirectory: true
+                )
             )
-            let files = try AIExportBuilder.writePacket(document: lastDocument, to: folderURL)
+            let options = AIExportOptions(mode: aiExportMode, watchlistText: watchlistText)
+            let files = try AIExportBuilder.writePacket(document: lastDocument, to: folderURL, options: options)
             lastOutputURL = folderURL
             appendLog("Saved analysis pack: \(folderURL.path)")
+            appendLog("AI output mode: \(aiExportMode.title)")
             appendLog("Analysis files: \(files.count)")
             NSWorkspace.shared.activateFileViewerSelecting([folderURL])
         } catch {
@@ -340,10 +392,9 @@ final class AppViewModel: ObservableObject {
     }
 
     private func appendLog(_ line: String) {
-        if logText.isEmpty {
-            logText = line
-        } else {
-            logText += "\n\(line)"
+        logLines.append(line)
+        if logLines.count > 500 {
+            logLines.removeFirst(logLines.count - 500)
         }
     }
 

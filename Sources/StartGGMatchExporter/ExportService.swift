@@ -43,7 +43,7 @@ actor RequestThrottler {
     }
 }
 
-final class ExportService: @unchecked Sendable {
+final class ExportService: Sendable {
     typealias ProgressHandler = @Sendable (ExportProgress) async -> Void
     typealias PartialDocumentHandler = @Sendable (ExportDocument) async -> Void
 
@@ -190,9 +190,9 @@ final class ExportService: @unchecked Sendable {
                 entrantCount: entrants.count,
                 standingCount: standings.count,
                 setCount: allSets.count,
-                completedSetCount: allSets.filter { $0.state == 3 }.count,
-                pendingSetCount: allSets.filter { $0.state == 1 }.count,
-                startedSetCount: allSets.filter { $0.state == 2 || $0.state == 6 }.count
+                completedSetCount: allSets.filter { StartGGSetState.isCompleted($0.state) }.count,
+                pendingSetCount: allSets.filter { StartGGSetState.isPending($0.state) }.count,
+                startedSetCount: allSets.filter { StartGGSetState.isActive($0.state) }.count
             ),
             event: event,
             entrants: entrants,
@@ -517,9 +517,9 @@ final class ExportService: @unchecked Sendable {
                 id: id,
                 displayIdentifier: refs.first?.displayIdentifier,
                 setCount: groupSets.count,
-                completedSetCount: groupSets.filter { $0.state == 3 }.count,
-                pendingSetCount: groupSets.filter { $0.state == 1 }.count,
-                startedSetCount: groupSets.filter { $0.state == 2 || $0.state == 6 }.count
+                completedSetCount: groupSets.filter { StartGGSetState.isCompleted($0.state) }.count,
+                pendingSetCount: groupSets.filter { StartGGSetState.isPending($0.state) }.count,
+                startedSetCount: groupSets.filter { StartGGSetState.isActive($0.state) }.count
             )
         }
         .sorted { ($0.displayIdentifier ?? $0.id.value) < ($1.displayIdentifier ?? $1.id.value) }
@@ -539,6 +539,6 @@ final class ExportService: @unchecked Sendable {
     }
 
     private func shouldReuse(cachedPhase: PhaseExport) -> Bool {
-        !cachedPhase.sets.isEmpty && cachedPhase.sets.allSatisfy { $0.state == 3 }
+        !cachedPhase.sets.isEmpty && cachedPhase.sets.allSatisfy { StartGGSetState.isCompleted($0.state) }
     }
 }

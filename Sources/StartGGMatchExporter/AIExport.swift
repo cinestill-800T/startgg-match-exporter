@@ -1,5 +1,97 @@
 import Foundation
 
+enum AIExportMode: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
+    case full
+    case liveFocus
+    case compact
+    case watchlistFocus
+
+    var id: String {
+        rawValue
+    }
+
+    var title: String {
+        switch self {
+        case .full:
+            return "Full（全件）"
+        case .liveFocus:
+            return "Live Focus（進行中中心）"
+        case .compact:
+            return "Compact（軽量）"
+        case .watchlistFocus:
+            return "Watchlist Focus（指定選手）"
+        }
+    }
+
+    var folderNameComponent: String {
+        switch self {
+        case .full:
+            return "full"
+        case .liveFocus:
+            return "live-focus"
+        case .compact:
+            return "compact"
+        case .watchlistFocus:
+            return "watchlist-focus"
+        }
+    }
+
+    var shortDescription: String {
+        switch self {
+        case .full:
+            return "全試合と raw.json を含む従来の完全出力です。検証や再解析向きですが、AIへ渡す容量は最大になります。"
+        case .liveFocus:
+            return "未完了・進行中の試合と関係選手だけを残し、勝ち残り選手の直近結果だけ補足します。大会追跡の通常更新向きです。"
+        case .compact:
+            return "終了済み試合の詳細と無関係な選手一覧をAI用ファイルから外し、現在残っている試合を優先します。トークン節約向きです。"
+        case .watchlistFocus:
+            return "Watchlistに入力した選手と、その周辺の試合だけを出力します。特定選手の状況解説向きです。"
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .full:
+            return "Full（全件）: raw.json と全件 matches.jsonl を含めます。情報の欠落は最小ですが、フォルダごとAIに渡すとトークン負担が大きくなります。"
+        case .liveFocus:
+            return "Live Focus（進行中中心）: raw.json は出力せず、analysis.json と matches.jsonl は未完了・進行中の試合、関係選手、現在アクティブな選手の直近終了試合に絞ります。数日かけて大会を追う通常運用に向いています。"
+        case .compact:
+            return "Compact（軽量）: raw.json は出力せず、終了済み試合の詳細行、無関係な選手一覧、全体検索インデックスを除外します。analysis.json には現在残っている試合と関係選手の圧縮サマリだけ残します。"
+        case .watchlistFocus:
+            return "Watchlist Focus（指定選手）: Watchlist に入力した選手を中心に、未完了試合と直近の終了済み試合だけを出します。使う前に Watchlist 欄へ選手名を入力してください。"
+        }
+    }
+
+    var defaultRecentCompletedMatchLimit: Int {
+        switch self {
+        case .full:
+            return Int.max
+        case .liveFocus:
+            return 3
+        case .compact:
+            return 0
+        case .watchlistFocus:
+            return 5
+        }
+    }
+}
+
+struct AIExportOptions: Codable, Hashable, Sendable {
+    var mode: AIExportMode
+    var watchlistText: String
+    var recentCompletedMatchLimit: Int
+
+    init(
+        mode: AIExportMode = .full,
+        watchlistText: String = "",
+        recentCompletedMatchLimit: Int? = nil
+    ) {
+        self.mode = mode
+        self.watchlistText = watchlistText
+        self.recentCompletedMatchLimit = recentCompletedMatchLimit ?? mode.defaultRecentCompletedMatchLimit
+    }
+}
+
 struct AIExportPacket: Codable, Hashable, Sendable {
     var metadata: AIExportMetadata
     var usageGuide: AIUsageGuide
@@ -18,6 +110,8 @@ struct AIExportMetadata: Codable, Hashable, Sendable {
     var schemaVersion: Int
     var generatedAt: String
     var source: ExportSource
+    var exportMode: String
+    var exportModeDescription: String
     var eventName: String?
     var tournamentName: String?
     var videogameName: String?
@@ -227,14 +321,25 @@ enum AIExportBuilder {
         buildResult(from: document).packet
     }
 
+    static func build(from document: ExportDocument, options: AIExportOptions) -> AIExportPacket {
+        buildResult(from: document, options: options).packet
+    }
+
     static func normalizedMatches(from document: ExportDocument) -> [AIMatchRow] {
         matchRows(from: document)
     }
 
-    private static func buildResult(from document: ExportDocument) -> (packet: AIExportPacket, matches: [AIMatchRow]) {
+    static func normalizedMatches(from document: ExportDocument, options: AIExportOptions) -> [AIMatchRow] {
+        buildResult(from: document, options: options).matches
+    }
+
+    private static func buildResult(
+        from document: ExportDocument,
+        options: AIExportOptions = AIExportOptions()
+    ) -> (packet: AIExportPacket, matches: [AIMatchRow]) {
         let entrants = mergedEntrants(from: document)
         let standingsByEntrantId = standingsMap(from: document)
-        let entrantRows = entrants.map { entrant in
+        let allEntrantRows = entrants.map { entrant in
             AIEntrantRow(
                 entrantId: entrant.id,
                 name: entrant.name,
@@ -246,7 +351,7 @@ enum AIExportBuilder {
         }
         .sorted { sortEntrants($0, $1) }
 
-        let standingRows = document.standings.map { standing in
+        let allStandingRows = document.standings.map { standing in
             AIStandingRow(
                 placement: standing.placement,
                 entrantId: standing.entrant?.id,
@@ -256,17 +361,33 @@ enum AIExportBuilder {
         }
         .sorted { ($0.placement ?? Int.max) < ($1.placement ?? Int.max) }
 
-        let matchRows = matchRows(from: document)
-        let playerRows = playerRows(entrants: entrants, standingsByEntrantId: standingsByEntrantId, matches: matchRows)
-        let phaseGroupRows = phaseGroupRows(from: document)
+        let allMatchRows = matchRows(from: document)
+        let allPlayerRows = playerRows(entrants: entrants, standingsByEntrantId: standingsByEntrantId, matches: allMatchRows)
+        let watchlistDocument = makeWatchlistDocument(from: document, options: options)
+        let matchRows = filteredMatches(allMatchRows, players: allPlayerRows, options: options, watchlistDocument: watchlistDocument)
+        let outputEntrantIds = includedEntrantIds(
+            mode: options.mode,
+            matches: matchRows,
+            players: allPlayerRows,
+            watchlistDocument: watchlistDocument
+        )
+        let entrantRows = filteredEntrants(allEntrantRows, includedIds: outputEntrantIds)
+        let standingRows = filteredStandings(allStandingRows, includedIds: outputEntrantIds)
+        let playerRows = filteredPlayers(allPlayerRows, options: options, includedIds: outputEntrantIds)
+        let phaseGroupRows = filteredPhaseGroups(
+            phaseGroupRows(from: document),
+            matches: matchRows,
+            mode: options.mode,
+            includedIds: outputEntrantIds
+        )
         let routes = routeRows(players: playerRows, phaseGroups: phaseGroupRows)
         let packet = AIExportPacket(
-            metadata: metadata(from: document),
-            usageGuide: usageGuide(),
+            metadata: metadata(from: document, options: options, watchlistDocument: watchlistDocument),
+            usageGuide: usageGuide(options: options),
             entrantIndex: entrantIndex(entrants: entrantRows),
             matchIndex: matchIndex(matches: matchRows),
             frontier: frontier(players: playerRows, matches: matchRows, phaseGroups: phaseGroupRows),
-            compressedHistory: compressedHistory(players: playerRows),
+            compressedHistory: compressedHistory(players: allPlayerRows, options: options, includedIds: outputEntrantIds),
             entrants: entrantRows,
             standings: standingRows,
             players: playerRows,
@@ -278,9 +399,13 @@ enum AIExportBuilder {
     }
 
     @discardableResult
-    static func writePacket(document: ExportDocument, to folderURL: URL) throws -> [URL] {
+    static func writePacket(
+        document: ExportDocument,
+        to folderURL: URL,
+        options: AIExportOptions = AIExportOptions()
+    ) throws -> [URL] {
         try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
-        let result = buildResult(from: document)
+        let result = buildResult(from: document, options: options)
         let packet = result.packet
         var written: [URL] = []
 
@@ -290,8 +415,10 @@ enum AIExportBuilder {
             written.append(url)
         }
 
-        try write(ExportService().encode(document), named: "raw.json")
-        try write(encodePretty(packet), named: "analysis.json")
+        if options.mode == .full {
+            try write(ExportService().encode(document), named: "raw.json")
+        }
+        try write(encodePacket(packet, options: options), named: "analysis.json")
         try write(encodeJSONLines(result.matches), named: "matches.jsonl")
         try write(Data(summaryMarkdown(from: packet).utf8), named: "summary.md")
         try write(Data(analysisPrompt(from: packet).utf8), named: "analysis-prompt.md")
@@ -303,6 +430,19 @@ enum AIExportBuilder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(value)
+    }
+
+    static func encodeCompact<T: Encodable>(_ value: T) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(value)
+    }
+
+    private static func encodePacket(_ packet: AIExportPacket, options: AIExportOptions) throws -> Data {
+        if options.mode == .full {
+            return try encodePretty(packet)
+        }
+        return try encodeCompact(packet)
     }
 
     static func encodeJSONLines<T: Encodable>(_ values: [T]) throws -> Data {
@@ -321,15 +461,17 @@ enum AIExportBuilder {
         lines.append("")
         lines.append("- Generated: \(packet.metadata.generatedAt)")
         lines.append("- Source: \(packet.metadata.source.inputURL)")
+        lines.append("- Output mode: \(packet.metadata.exportMode)")
         lines.append("- Entrants: \(packet.entrants.count)")
-        lines.append("- Matches: \(packet.metadata.summary.setCount)")
+        lines.append("- Match rows in AI output: \(packet.matchIndex.byId.count)")
+        lines.append("- Source matches: \(packet.metadata.summary.setCount)")
         lines.append("- Completed matches: \(packet.metadata.summary.completedSetCount)")
         lines.append("- Pending matches: \(packet.metadata.summary.pendingSetCount)")
         lines.append("- Frontier active entrants: \(packet.frontier.activeEntrantIds.count)")
         lines.append("")
         lines.append("## Files")
         lines.append("")
-        for file in fileGuide(from: packet) {
+        for file in fileGuide(from: packet, matchRecordCount: packet.matchIndex.byId.count) {
             let count = file.records.map { " (\($0) records)" } ?? ""
             lines.append("- `\(file.path)`\(count): \(file.description)")
         }
@@ -372,59 +514,89 @@ enum AIExportBuilder {
         - For confirmed results, trust completedMatches in players or matches.jsonl rows where stateLabel is completed.
         - For future opponents, distinguish known pending opponents from broader groupOpponentCandidates.
         - Unrelated completed matches are intentionally compressed. Do not expand them unless the user asks.
-        - raw.json is included as a fallback for missing fields, not as the primary analysis surface.
+        - raw.json is included only in Full mode. In lightweight modes, do not assume raw fallback is available.
 
         Event: \(packet.metadata.eventName ?? "unknown")
+        Output mode: \(packet.metadata.exportMode)
+        Output mode note: \(packet.metadata.exportModeDescription)
         Source: \(packet.metadata.source.inputURL)
         Generated: \(packet.metadata.generatedAt)
         """
     }
 
-    private static func fileGuide(from packet: AIExportPacket) -> [AIExportManifestFile] {
-        [
-            AIExportManifestFile(path: "analysis.json", description: "Primary target-agnostic analysis packet with lookup indices, frontier, compressed history, players, phase groups, and routes.", records: nil),
-            AIExportManifestFile(path: "matches.jsonl", description: "One normalized match per line for set-level drill-down.", records: packet.metadata.summary.setCount),
+    private static func fileGuide(from packet: AIExportPacket, matchRecordCount: Int) -> [AIExportManifestFile] {
+        var files = [
+            AIExportManifestFile(path: "analysis.json", description: "Primary analysis packet with lookup indices, frontier, compressed history, players, phase groups, and routes.", records: nil),
+            AIExportManifestFile(path: "matches.jsonl", description: "One normalized match per line for set-level drill-down. In lightweight modes this file is intentionally filtered.", records: matchRecordCount),
             AIExportManifestFile(path: "summary.md", description: "Human-readable overview for quick review.", records: nil),
-            AIExportManifestFile(path: "analysis-prompt.md", description: "Prompt guidance for an external AI assistant.", records: nil),
-            AIExportManifestFile(path: "raw.json", description: "Original comprehensive export for fallback inspection.", records: nil)
+            AIExportManifestFile(path: "analysis-prompt.md", description: "Prompt guidance for an external AI assistant.", records: nil)
         ]
+        if packet.metadata.exportMode == AIExportMode.full.title {
+            files.append(AIExportManifestFile(path: "raw.json", description: "Original comprehensive export for fallback inspection.", records: nil))
+        }
+        return files
     }
 
-    private static func metadata(from document: ExportDocument) -> AIExportMetadata {
-        AIExportMetadata(
-            schemaVersion: 2,
+    private static func metadata(
+        from document: ExportDocument,
+        options: AIExportOptions,
+        watchlistDocument: WatchlistExportDocument?
+    ) -> AIExportMetadata {
+        var notes = [
+            "analysis.json is optimized for target-player lookup. Use entrantIndex and matchIndex before scanning matches.jsonl.",
+            "Full match rows are stored in matches.jsonl, not duplicated inside analysis.json.",
+            "Routes are partial bracket-context hints. They do not include start.gg prerequisite-slot graph edges unless those are present in raw data.",
+            "Player nationality is not inferred by this app."
+        ]
+        if options.mode != .full {
+            notes.append("This lightweight export intentionally omits raw.json and scopes entrants, players, standings, routes, phase groups, and match details to the current AI output mode.")
+        }
+        if options.mode == .watchlistFocus {
+            let matched = watchlistDocument?.summary.matchedEntrantCount ?? 0
+            notes.append("Watchlist Focus matched \(matched) entrants from the current Watchlist text.")
+        }
+
+        return AIExportMetadata(
+            schemaVersion: 3,
             generatedAt: ISO8601DateFormatter().string(from: Date()),
             source: document.source,
+            exportMode: options.mode.title,
+            exportModeDescription: options.mode.shortDescription,
             eventName: document.event.name,
             tournamentName: document.event.tournament?.name,
             videogameName: document.event.videogame?.name,
             summary: document.summary,
-            notes: [
-                "analysis.json is optimized for arbitrary target-player lookup. Use entrantIndex and matchIndex before scanning matches.jsonl.",
-                "Full match rows are stored in matches.jsonl, not duplicated inside analysis.json.",
-                "Routes are partial bracket-context hints. They do not include start.gg prerequisite-slot graph edges unless those are present in raw data.",
-                "Player nationality is not inferred by this app."
-            ]
+            notes: notes
         )
     }
 
-    private static func usageGuide() -> AIUsageGuide {
-        AIUsageGuide(
+    private static func usageGuide(options: AIExportOptions) -> AIUsageGuide {
+        var filePriority = ["analysis.json", "matches.jsonl", "summary.md"]
+        if options.mode == .full {
+            filePriority.append("raw.json")
+        }
+        var workflow = [
+            "Find the entrantId via entrantIndex.nameSearch.",
+            "Read players for current status, record, latest location, and compact match references.",
+            "Use matchIndex.pendingByEntrantId and matchIndex.completedByEntrantId to jump to relevant setIds.",
+            "Use routes for known pending opponents and broader same-group candidates.",
+            "Use frontier for live tournament context.",
+            "Use compressedHistory for past results unless detailed per-set history is requested.",
+            "Use matches.jsonl for specific setIds."
+        ]
+        if options.mode == .full {
+            workflow.append("Use raw.json only as fallback.")
+        }
+
+        return AIUsageGuide(
             purpose: "Help an external AI answer arbitrary player-status and route questions without scanning unrelated completed matches first.",
-            targetPlayerWorkflow: [
-                "Find the entrantId via entrantIndex.nameSearch.",
-                "Read players for current status, record, latest location, and compact match references.",
-                "Use matchIndex.pendingByEntrantId and matchIndex.completedByEntrantId to jump to relevant setIds.",
-                "Use routes for known pending opponents and broader same-group candidates.",
-                "Use frontier for live tournament context.",
-                "Use compressedHistory for past results unless detailed per-set history is requested.",
-                "Use matches.jsonl for specific setIds and raw.json only as fallback."
-            ],
-            filePriority: ["analysis.json", "matches.jsonl", "summary.md", "raw.json"],
+            targetPlayerWorkflow: workflow,
+            filePriority: filePriority,
             caveats: [
                 "Nationality is not inferred.",
                 "groupOpponentCandidates are not confirmed future opponents.",
-                "routeConfidence is partial unless explicit bracket graph edges are available."
+                "routeConfidence is partial unless explicit bracket graph edges are available.",
+                "raw.json is present only in Full mode."
             ]
         )
     }
@@ -521,8 +693,18 @@ enum AIExportBuilder {
         )
     }
 
-    private static func compressedHistory(players: [AIPlayerRow]) -> AICompressedHistory {
-        let rows = players.map { player in
+    private static func compressedHistory(
+        players: [AIPlayerRow],
+        options: AIExportOptions,
+        includedIds: Set<FlexibleID>?
+    ) -> AICompressedHistory {
+        let scopedPlayers = players.filter { player in
+            guard let includedIds else {
+                return true
+            }
+            return includedIds.contains(player.entrantId)
+        }
+        let rows = scopedPlayers.map { player in
             let lastCompleted = player.completedMatches.last
             return (
                 player.entrantId.value,
@@ -534,11 +716,186 @@ enum AIExportBuilder {
                     lastCompletedSetId: lastCompleted?.setId,
                     lastCompletedPhaseName: lastCompleted?.phaseName,
                     lastCompletedRoundText: lastCompleted?.roundText,
-                    recentCompletedMatches: Array(player.completedMatches.suffix(3))
+                    recentCompletedMatches: recentCompletedMatches(for: player, limit: options.recentCompletedMatchLimit)
                 )
             )
         }
         return AICompressedHistory(byEntrantId: Dictionary(uniqueKeysWithValues: rows))
+    }
+
+    private static func makeWatchlistDocument(
+        from document: ExportDocument,
+        options: AIExportOptions
+    ) -> WatchlistExportDocument? {
+        guard options.mode == .watchlistFocus else {
+            return nil
+        }
+        let trimmed = options.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        return WatchlistScopeBuilder.build(from: document, watchlistText: trimmed)
+    }
+
+    private static func filteredMatches(
+        _ matches: [AIMatchRow],
+        players: [AIPlayerRow],
+        options: AIExportOptions,
+        watchlistDocument: WatchlistExportDocument?
+    ) -> [AIMatchRow] {
+        switch options.mode {
+        case .full:
+            return matches
+        case .liveFocus:
+            let activeRecentIds = Set(
+                players
+                    .filter { $0.status == "active" }
+                    .flatMap { recentCompletedMatches(for: $0, limit: options.recentCompletedMatchLimit).map(\.setId) }
+            )
+            return matches.filter { !isCompleted($0) || activeRecentIds.contains($0.setId) }
+        case .compact:
+            return matches.filter { !isCompleted($0) }
+        case .watchlistFocus:
+            let watchedIds = watchlistEntrantIds(from: watchlistDocument)
+            guard !watchedIds.isEmpty else {
+                return matches.filter { !isCompleted($0) }
+            }
+            let watchedRecentIds = Set(
+                players
+                    .filter { watchedIds.contains($0.entrantId) }
+                    .flatMap { recentCompletedMatches(for: $0, limit: options.recentCompletedMatchLimit).map(\.setId) }
+            )
+            return matches.filter { match in
+                let containsWatchedEntrant = match.slots.contains { slot in
+                    slot.entrantId.map { watchedIds.contains($0) } ?? false
+                }
+                guard containsWatchedEntrant else {
+                    return false
+                }
+                return !isCompleted(match) || watchedRecentIds.contains(match.setId)
+            }
+        }
+    }
+
+    private static func includedEntrantIds(
+        mode: AIExportMode,
+        matches: [AIMatchRow],
+        players: [AIPlayerRow],
+        watchlistDocument: WatchlistExportDocument?
+    ) -> Set<FlexibleID>? {
+        if mode == .full {
+            return nil
+        }
+
+        var ids = Set(matches.flatMap { match in match.slots.compactMap(\.entrantId) })
+        if mode == .watchlistFocus {
+            ids.formUnion(watchlistEntrantIds(from: watchlistDocument))
+        }
+        if ids.isEmpty {
+            ids.formUnion(players.filter { $0.status == "active" }.map(\.entrantId))
+        }
+        return ids
+    }
+
+    private static func filteredEntrants(
+        _ entrants: [AIEntrantRow],
+        includedIds: Set<FlexibleID>?
+    ) -> [AIEntrantRow] {
+        guard let includedIds else {
+            return entrants
+        }
+        return entrants.filter { includedIds.contains($0.entrantId) }
+    }
+
+    private static func filteredStandings(
+        _ standings: [AIStandingRow],
+        includedIds: Set<FlexibleID>?
+    ) -> [AIStandingRow] {
+        guard let includedIds else {
+            return standings
+        }
+        return standings.filter { row in
+            row.entrantId.map { includedIds.contains($0) } ?? false
+        }
+    }
+
+    private static func filteredPlayers(
+        _ players: [AIPlayerRow],
+        options: AIExportOptions,
+        includedIds: Set<FlexibleID>?
+    ) -> [AIPlayerRow] {
+        players.compactMap { player in
+            if let includedIds, !includedIds.contains(player.entrantId) {
+                return nil
+            }
+            var output = player
+            switch options.mode {
+            case .full:
+                break
+            case .liveFocus:
+                output.completedMatches = player.status == "active"
+                    ? recentCompletedMatches(for: player, limit: options.recentCompletedMatchLimit)
+                    : []
+            case .compact:
+                output.completedMatches = []
+            case .watchlistFocus:
+                output.completedMatches = recentCompletedMatches(for: player, limit: options.recentCompletedMatchLimit)
+            }
+            return output
+        }
+    }
+
+    private static func filteredPhaseGroups(
+        _ phaseGroups: [AIPhaseGroupRow],
+        matches: [AIMatchRow],
+        mode: AIExportMode,
+        includedIds: Set<FlexibleID>?
+    ) -> [AIPhaseGroupRow] {
+        guard mode != .full else {
+            return phaseGroups
+        }
+        let includedMatchIds = Set(matches.map(\.setId))
+        let keys = Set(matches.compactMap { match -> PhaseGroupKey? in
+            guard let phaseGroupId = match.phaseGroupId else {
+                return nil
+            }
+            return PhaseGroupKey(phaseId: match.phaseId, groupId: phaseGroupId, label: match.phaseGroupLabel)
+        })
+        return phaseGroups.compactMap { row in
+            guard keys.contains(PhaseGroupKey(phaseId: row.phaseId, groupId: row.phaseGroupId, label: row.phaseGroupLabel)) else {
+                return nil
+            }
+            var scoped = row
+            if let includedIds {
+                scoped.entrantIds = row.entrantIds.filter { includedIds.contains($0) }
+                scoped.entrantCount = scoped.entrantIds.count
+            }
+            scoped.pendingSetIds = row.pendingSetIds.filter { includedMatchIds.contains($0) }
+            return scoped
+        }
+    }
+
+    private static func watchlistEntrantIds(from document: WatchlistExportDocument?) -> Set<FlexibleID> {
+        guard let document else {
+            return []
+        }
+        return Set(document.queries.flatMap { query in
+            query.matches.map { $0.entrant.id }
+        })
+    }
+
+    private static func recentCompletedMatches(for player: AIPlayerRow, limit: Int) -> [AIPlayerMatchRef] {
+        guard limit > 0 else {
+            return []
+        }
+        if limit == Int.max {
+            return player.completedMatches
+        }
+        return Array(player.completedMatches.suffix(limit))
+    }
+
+    private static func isCompleted(_ match: AIMatchRow) -> Bool {
+        match.stateLabel == "completed"
     }
 
     private static func matchRows(from document: ExportDocument) -> [AIMatchRow] {
@@ -556,7 +913,7 @@ enum AIExportBuilder {
                     )
                 }
                 let winner = slots.first { $0.entrantId == set.winnerId }
-                let loser = set.state == 3 ? slots.first { $0.entrantId != nil && $0.entrantId != set.winnerId } : nil
+                let loser = StartGGSetState.isCompleted(set.state) ? slots.first { $0.entrantId != nil && $0.entrantId != set.winnerId } : nil
                 return AIMatchRow(
                     setId: set.id,
                     phaseId: phase.id,
@@ -699,12 +1056,12 @@ enum AIExportBuilder {
                 phaseGroupId: key.groupId,
                 phaseGroupLabel: key.label,
                 setCount: sets.count,
-                completedSetCount: sets.filter { $0.state == 3 }.count,
-                pendingSetCount: sets.filter { $0.state == 1 }.count,
-                activeSetCount: sets.filter { $0.state == 2 || $0.state == 6 }.count,
+                completedSetCount: sets.filter { StartGGSetState.isCompleted($0.state) }.count,
+                pendingSetCount: sets.filter { StartGGSetState.isPending($0.state) }.count,
+                activeSetCount: sets.filter { StartGGSetState.isActive($0.state) }.count,
                 entrantCount: entrantIds.count,
                 entrantIds: entrantIds.sorted { $0.value < $1.value },
-                pendingSetIds: sets.filter { $0.state != 3 }.map(\.id)
+                pendingSetIds: sets.filter { !StartGGSetState.isCompleted($0.state) }.map(\.id)
             )
         }
         .sorted { lhs, rhs in
@@ -803,13 +1160,13 @@ enum AIExportBuilder {
         guard let entrantId = slot.entrant?.id else {
             return "empty"
         }
-        if set.state == 3, let winnerId = set.winnerId {
+        if StartGGSetState.isCompleted(set.state), let winnerId = set.winnerId {
             return winnerId == entrantId ? "win" : "loss"
         }
-        if set.state == 1 {
+        if StartGGSetState.isPending(set.state) {
             return "pending"
         }
-        if set.state == 2 || set.state == 6 {
+        if StartGGSetState.isActive(set.state) {
             return "active"
         }
         return "unknown"
