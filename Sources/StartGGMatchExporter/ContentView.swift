@@ -177,7 +177,17 @@ struct ContentView: View {
                 .controlSize(.large)
                 .keyboardShortcut(.return, modifiers: [.command])
                 .disabled(!viewModel.canStart)
-                .help("Fetch entrants, standings, phases, and sets. Token input automatically enables the official API with safe pacing.")
+                .help("Fetch entrants, standings, phases, and sets. Complete local cache may be used as a base for completed phases.")
+
+                Button {
+                    viewModel.fetch(forceRefresh: true)
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+                .disabled(!viewModel.canStart)
+                .help("Ignore local cache and fetch fresh data from start.gg.")
 
                 Button {
                     viewModel.saveAnalysisPacket()
@@ -196,7 +206,7 @@ struct ContentView: View {
                     } label: {
                         Label("Cancel", systemImage: "stop.circle")
                     }
-                    .help("Cancel the current export. Finished phases are kept in the local cache and can be reused by the next fetch.")
+                    .help("Cancel the current export. Only previously completed exports are kept in the local cache.")
                 }
             }
         }

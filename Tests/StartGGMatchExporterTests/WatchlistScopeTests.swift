@@ -45,6 +45,32 @@ struct WatchlistScopeTests {
         #expect(match?.matchedValue == "DFM")
     }
 
+    @Test("Merges sparse standings entrants without losing watchlist candidates")
+    func mergesSparseStandingsEntrantsWithoutLosingWatchlistCandidates() {
+        var document = sampleDocument()
+        document.standings = [
+            Standing(
+                id: FlexibleID("st-sparse"),
+                placement: 1,
+                entrant: Entrant(
+                    id: FlexibleID("1"),
+                    name: nil,
+                    initialSeedNum: nil,
+                    participants: nil
+                )
+            )
+        ]
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+        let match = scope.queries.first?.matches.first
+
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(match?.entrant.name == "ROHTO Z! Tokido")
+        #expect(match?.entrant.initialSeedNum == 1)
+        #expect(match?.standingPlacement == 1)
+        #expect(match?.setCount == 2)
+    }
+
     @Test("Creates markdown report")
     func createsMarkdown() {
         let scope = WatchlistScopeBuilder.build(from: sampleDocument(), watchlistText: "Tokido")

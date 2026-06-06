@@ -30,8 +30,8 @@ Create a token in start.gg Developer Settings and paste it into the app to enabl
 2. Unzip it and open `StartGGMatchExporter.app`.
 3. Paste a start.gg event URL, for example `https://www.start.gg/tournament/.../event/street-fighter-6`.
 4. Paste your start.gg API token for authenticated official API access, or leave it blank for Public Safe Mode.
-5. Click `Fetch Data`.
-6. Click `Analysis`.
+5. Click `Fetch`, or `Refresh` when you want to ignore local cache and fetch fresh data.
+6. Click `Export`.
 
 The exporter accepts normal event URLs and bracket URLs. It normalizes them to a start.gg event slug internally.
 
@@ -55,7 +55,7 @@ Matching is mechanical and transparent. The app does not infer nationality, team
 
 ## Analysis Pack
 
-After fetching an event, choose an AI output mode and click `Analysis` to create a folder in Downloads. Hover the AI output mode selector or the help icon in the app to read the Japanese explanation for each mode.
+After fetching an event, choose an AI output mode and click `Export` to create a folder in Downloads. Hover the AI output mode selector or the help icon in the app to read the Japanese explanation for each mode.
 
 Modes:
 
@@ -72,11 +72,11 @@ Full mode creates five files:
 - `summary.md`: compact human-readable overview
 - `analysis-prompt.md`: guidance for external AI analysis
 
-`Analysis` is the single export action. `raw.json` keeps the complete raw export in Full mode, while `analysis.json` and `matches.jsonl` provide the AI-friendly normalized view. Lightweight modes intentionally do not write `raw.json`, so uploading the output folder to an AI assistant does not accidentally include the full tournament dump. Route data is intentionally marked as partial because start.gg set data does not always include explicit prerequisite-slot graph edges. Use it as a prediction aid, not as a confirmed bracket path.
+`Export` is the single analysis-pack action. `raw.json` keeps the complete raw export in Full mode, while `analysis.json` and `matches.jsonl` provide the AI-friendly normalized view. Lightweight modes intentionally do not write `raw.json`, so uploading the output folder to an AI assistant does not accidentally include the full tournament dump. Route data is intentionally marked as partial because start.gg set data does not always include explicit prerequisite-slot graph edges. Use it as a prediction aid, not as a confirmed bracket path.
 
 ## Local Cache
 
-The app caches exports in Application Support and reuses them for the same event URL and connection mode. Fetching with cache enabled uses the cache as a base, skips phases whose cached sets are all completed, and updates the remaining phases. During long exports, the app also saves partial cache snapshots after each phase. If you cancel an export, the next normal `Fetch Data` run can continue from the finished cached phases.
+The app caches complete exports in Application Support and reuses them for the same event URL and connection mode. Normal `Fetch` uses a valid complete cache as a base, skips phases whose cached sets are all completed, and updates the remaining phases. Incomplete or corrupted cache files are ignored and removed so stale partial data cannot be displayed or exported.
 
 Use `Refresh` to ignore the cache and fetch fresh data from start.gg.
 
@@ -100,7 +100,7 @@ For authenticated mode, the default request interval is `0.76` seconds, roughly 
 
 The generated `_notes` text is written in Japanese. If an older English config file already exists, the app refreshes only the explanatory `_notes` while preserving your numeric tuning values.
 
-The app also remembers the last event URL, Watchlist text, and local cache setting you entered and restores them on the next launch. Save dialogs default to the macOS Downloads folder.
+The app also remembers the last event URL and Watchlist text you entered and restores them on the next launch. Save dialogs default to the macOS Downloads folder.
 
 ## JSON Shape
 
@@ -146,7 +146,7 @@ This app uses the official start.gg GraphQL API endpoint:
 https://api.start.gg/gql/alpha
 ```
 
-start.gg documents an average rate limit of 80 requests per 60 seconds and a 1000 object maximum per request. The app throttles requests, uses conservative page sizes, and writes local cache snapshots so repeated tournament updates avoid re-fetching completed phases.
+start.gg documents an average rate limit of 80 requests per 60 seconds and a 1000 object maximum per request. The app throttles requests, uses conservative page sizes, and writes complete local cache files so repeated tournament updates avoid re-fetching completed phases.
 
 ## License
 

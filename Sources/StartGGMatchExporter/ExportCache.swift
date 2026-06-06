@@ -9,22 +9,33 @@ enum ExportCache {
         }
         do {
             let data = try Data(contentsOf: url)
-            return try JSONDecoder().decode(ExportDocument.self, from: data)
+            let document = try JSONDecoder().decode(ExportDocument.self, from: data)
+            guard document.isCompleteExport else {
+                removeCache(at: url)
+                return nil
+            }
+            return document
         } catch {
+            removeCache(at: url)
             return nil
         }
     }
 
-    static func save(_ document: ExportDocument) {
+    @discardableResult
+    static func save(_ document: ExportDocument) -> Bool {
+        guard document.isCompleteExport else {
+            return false
+        }
         guard let url = cacheURL(for: document.source.eventSlug, mode: StartGGAPIMode(rawValue: document.source.apiMode) ?? .publicSafe) else {
-            return
+            return false
         }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let data = try ExportService().encode(document)
             try data.write(to: url, options: .atomic)
+            return true
         } catch {
-            return
+            return false
         }
     }
 
@@ -32,6 +43,10 @@ enum ExportCache {
         guard let url = cacheURL(for: eventSlug, mode: mode) else {
             return
         }
+        removeCache(at: url)
+    }
+
+    private static func removeCache(at url: URL) {
         try? FileManager.default.removeItem(at: url)
     }
 

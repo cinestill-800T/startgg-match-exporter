@@ -264,7 +264,7 @@ enum WatchlistScopeBuilder {
         }
         for standing in document.standings {
             if let entrant = standing.entrant {
-                byId[entrant.id] = entrant
+                byId[entrant.id] = merge(existing: byId[entrant.id], incoming: entrant)
             }
         }
         return byId.values.sorted { ($0.name ?? $0.id.value) < ($1.name ?? $1.id.value) }
@@ -274,10 +274,7 @@ enum WatchlistScopeBuilder {
         guard let existing else {
             return incoming
         }
-        if existing.participants?.isEmpty == false {
-            return existing
-        }
-        return incoming.participants?.isEmpty == false ? incoming : existing
+        return existing.mergingMissingFields(from: incoming)
     }
 
     private static func bestMatches(for query: String, entrants: [Entrant]) -> [EntrantMatch] {

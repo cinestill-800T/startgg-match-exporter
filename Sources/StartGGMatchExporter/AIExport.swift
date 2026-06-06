@@ -1139,12 +1139,7 @@ enum AIExportBuilder {
         guard let existing else {
             return incoming
         }
-        return Entrant(
-            id: existing.id,
-            name: existing.name ?? incoming.name,
-            initialSeedNum: existing.initialSeedNum ?? incoming.initialSeedNum,
-            participants: existing.participants?.isEmpty == false ? existing.participants : incoming.participants
-        )
+        return existing.mergingMissingFields(from: incoming)
     }
 
     private static func standingsMap(from document: ExportDocument) -> [FlexibleID: Int] {

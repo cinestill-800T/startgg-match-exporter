@@ -10,7 +10,7 @@ struct ExportConfigurationTests {
         #expect(!config._notes.isEmpty)
         #expect(!config.officialAPI._notes.isEmpty)
         #expect(!config.publicAPI._notes.isEmpty)
-        #expect(config._notes.contains { $0.contains("Fetch Data") })
+        #expect(config._notes.contains { $0.contains("Fetch") && $0.contains("Refresh") })
         #expect(config.officialAPI._notes.contains { $0.contains("API Token") })
     }
 

@@ -116,15 +116,12 @@ final class AppViewModel: ObservableObject {
             saveToken()
         }
         isWorking = true
-        lastDocument = nil
-        lastOutputURL = nil
-        completedSetCount = 0
-        pendingSetCount = 0
-        totalSetCount = 0
-        entrantCount = 0
-        bracketSummaryText = nil
+        clearDisplayedDocument()
         progressMessage = "Starting \(apiMode.title)"
         logLines.removeAll()
+        if forceRefresh {
+            appendLog("Refresh requested. Ignoring local cache.")
+        }
 
         let inputURL = eventURL
         let inputToken = token
@@ -170,20 +167,18 @@ final class AppViewModel: ObservableObject {
                     } ?? "\(progress.stage): \(progress.detail)"
                 }
             } partialDocumentHandler: { [weak self] partialDocument in
-                ExportCache.save(partialDocument)
                 await MainActor.run {
-                    self?.updateBracketSummary(from: partialDocument)
-                    self?.appendLog("Saved partial cache: \(partialDocument.phases.count)/\(partialDocument.event.phases.count) phases.")
+                    self?.appendLog("Fetched bracket progress: \(partialDocument.phases.count)/\(partialDocument.event.phases.count) phases.")
                 }
             }
 
             do {
                 let document = try await service.export(from: inputURL, token: inputToken, cachedDocument: cachedDocument)
                 await MainActor.run {
-                    ExportCache.save(document)
+                    let didSaveCache = ExportCache.save(document)
                     self.apply(document: document, mode: mode)
                     self.progressMessage = "Fetched \(document.summary.setCount) sets."
-                    self.appendLog("Saved cache.")
+                    self.appendLog(didSaveCache ? "Saved cache." : "Cache save skipped. Export data is available in this session.")
                     if !self.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         let preview = WatchlistScopeBuilder.preview(for: self.watchlistText, document: document)
                         self.appendLog("Watchlist: \(preview.summaryText)")
@@ -191,14 +186,15 @@ final class AppViewModel: ObservableObject {
                 }
             } catch is CancellationError {
                 await MainActor.run {
-                    if let partialDocument = self.cachedDocument(for: inputURL, mode: mode) {
-                        self.apply(document: partialDocument, mode: mode)
-                        self.progressMessage = "Cancelled. Partial cache is ready."
-                        self.appendLog("Export cancelled. The latest partial cache will be used on the next fetch.")
+                    if let cachedDocument = self.cachedDocument(for: inputURL, mode: mode) {
+                        self.apply(document: cachedDocument, mode: mode)
+                        self.progressMessage = "Cancelled. Loaded complete cache."
+                        self.appendLog("Export cancelled. Loaded the previous complete cache.")
                     } else {
+                        self.clearDisplayedDocument()
                         self.isWorking = false
                         self.progressMessage = "Cancelled"
-                        self.appendLog("Export cancelled.")
+                        self.appendLog("Export cancelled. No complete cache was available.")
                     }
                 }
             } catch {
@@ -209,6 +205,7 @@ final class AppViewModel: ObservableObject {
                         self.appendLog("Export failed: \(error.localizedDescription)")
                         self.appendLog("Fell back to cached data.")
                     } else {
+                        self.clearDisplayedDocument()
                         self.isWorking = false
                         self.progressMessage = "Failed"
                         self.appendLog("Export failed: \(error.localizedDescription)")
@@ -322,6 +319,16 @@ final class AppViewModel: ObservableObject {
         appendLog("Started/called sets: \(document.summary.startedSetCount)")
     }
 
+    private func clearDisplayedDocument() {
+        lastDocument = nil
+        lastOutputURL = nil
+        completedSetCount = 0
+        pendingSetCount = 0
+        totalSetCount = 0
+        entrantCount = 0
+        bracketSummaryText = nil
+    }
+
     private func makeWatchlistScope() -> WatchlistExportDocument? {
         guard let lastDocument, !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
@@ -343,7 +350,7 @@ final class AppViewModel: ObservableObject {
     private static func bracketSummaryText(for document: ExportDocument) -> String? {
         let eventPhases = document.event.phases
         guard !eventPhases.isEmpty else {
-            return nil
+            return "No bracket phases were returned by start.gg for this event."
         }
 
         let fetchedPhaseCount = document.phases.count
@@ -355,7 +362,7 @@ final class AppViewModel: ObservableObject {
 
         guard fetchedPhaseCount > 0 else {
             let firstPhaseName = phaseDisplayName(from: eventPhases[0])
-            var text = "Bracket: waiting for \(firstPhaseName)"
+            var text = "Current phase progress: waiting for \(firstPhaseName)"
             let details = [setSummary, phaseSummary].compactMap { $0 }
             if !details.isEmpty {
                 text += " (\(details.joined(separator: ", ")))"
@@ -367,7 +374,7 @@ final class AppViewModel: ObservableObject {
         let currentPhase = document.phases[min(currentIndex, document.phases.count - 1)]
         let currentPhaseName = phaseDisplayName(from: currentPhase, fallback: eventPhases[currentIndex])
         let status = bracketPhaseStatus(for: currentPhase)
-        var text = "Bracket: \(currentPhaseName) \(status)"
+        var text = "Current phase progress: \(currentPhaseName) \(status)"
         let percentSummary = currentPhase.percentComplete.map { value -> String in
             "\(value)%"
         }

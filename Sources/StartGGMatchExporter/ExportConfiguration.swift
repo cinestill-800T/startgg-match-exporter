@@ -7,10 +7,10 @@ struct ExportConfiguration: Codable, Sendable, Equatable {
 
     static let defaultConfiguration = ExportConfiguration(
         _notes: [
-            "StartGG Match Exporter は Fetch Data を開始するたびにこの config.json を読み込みます。アプリの再起動は不要です。",
+            "StartGG Match Exporter は Fetch または Refresh を開始するたびにこの config.json を読み込みます。アプリの再起動は不要です。",
             "初期値は速度優先です。start.gg が公開している平均レート制限 80 requests/min の直前を狙っています。",
-            "HTTP 429 が出る場合は minimumRequestIntervalSeconds を大きくするか concurrentRequests を小さくしてください。その後、Use local cache を有効にしたまま Fetch Data を実行すると、取得済み部分を再利用できます。",
-            "Refresh はローカルキャッシュを無視して start.gg から取り直したい場合だけ使ってください。大会進行に合わせた通常更新では Fetch Data の利用を推奨します。",
+            "HTTP 429 が出る場合は minimumRequestIntervalSeconds を大きくするか concurrentRequests を小さくしてください。その後、通常の Fetch を実行すると完全キャッシュを再利用できます。",
+            "Refresh はローカルキャッシュを無視して start.gg から取り直したい場合だけ使ってください。大会進行に合わせた通常更新では Fetch の利用を推奨します。",
             "Page size は GraphQL の複雑度に強く影響します。リクエスト間隔が十分でも、page size を上げすぎると 1000 objects 制限で失敗することがあります。",
             "この初期値で 429 や 1000 objects 制限が出る場合は、minimumRequestIntervalSeconds を 0.9 から 1.2 へ上げる、または setPageSize / standingPageSize を 30 以下へ下げてください。"
         ],
@@ -45,7 +45,7 @@ struct ExportConfiguration: Codable, Sendable, Equatable {
                 "Public Safe Mode の初期値も速度寄りですが、公開エンドポイントは公式 API より不安定です。失敗する場合は minimumRequestIntervalSeconds を 1.2 以上へ上げてください。",
                 "concurrentRequests は 1 のままです。公開エンドポイントでは同時実行を増やすメリットより失敗リスクが大きくなります。",
                 "公開エンドポイントが遅い、または失敗する場合は数分待つか、API Token を入力して Authenticated Safe Mode に切り替えてください。",
-                "Public Safe Mode でも cache は有効です。大会進行に合わせた再取得では Use local cache をオンにしたまま Fetch Data を使ってください。"
+                "Public Safe Mode でも完全キャッシュは有効です。大会進行に合わせた再取得では通常の Fetch を使ってください。"
             ],
             setPageSize: 75,
             entrantPageSize: 200,

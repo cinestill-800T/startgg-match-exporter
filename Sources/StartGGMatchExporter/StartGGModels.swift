@@ -83,6 +83,64 @@ struct Entrant: Codable, Hashable, Sendable {
     var participants: [Participant]?
 }
 
+extension Entrant {
+    func mergingMissingFields(from incoming: Entrant) -> Entrant {
+        Entrant(
+            id: id,
+            name: Self.firstNonBlank(name, incoming.name),
+            initialSeedNum: initialSeedNum ?? incoming.initialSeedNum,
+            participants: Self.mergedParticipants(participants, incoming.participants)
+        )
+    }
+
+    private static func firstNonBlank(_ values: String?...) -> String? {
+        values.first { value in
+            value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        } ?? nil
+    }
+
+    private static func mergedParticipants(_ existing: [Participant]?, _ incoming: [Participant]?) -> [Participant]? {
+        var byId: [FlexibleID: Participant] = [:]
+        var orderedIds: [FlexibleID] = []
+
+        func upsert(_ participant: Participant) {
+            if byId[participant.id] == nil {
+                orderedIds.append(participant.id)
+            }
+            byId[participant.id] = merge(existing: byId[participant.id], incoming: participant)
+        }
+
+        existing?.forEach(upsert)
+        incoming?.forEach(upsert)
+
+        let merged = orderedIds.compactMap { byId[$0] }
+        return merged.isEmpty ? nil : merged
+    }
+
+    private static func merge(existing: Participant?, incoming: Participant) -> Participant {
+        guard let existing else {
+            return incoming
+        }
+        return Participant(
+            id: existing.id,
+            gamerTag: firstNonBlank(existing.gamerTag, incoming.gamerTag),
+            prefix: firstNonBlank(existing.prefix, incoming.prefix),
+            player: merge(existing: existing.player, incoming: incoming.player)
+        )
+    }
+
+    private static func merge(existing: Player?, incoming: Player?) -> Player? {
+        guard existing != nil || incoming != nil else {
+            return nil
+        }
+        return Player(
+            id: existing?.id ?? incoming?.id,
+            gamerTag: firstNonBlank(existing?.gamerTag, incoming?.gamerTag),
+            prefix: firstNonBlank(existing?.prefix, incoming?.prefix)
+        )
+    }
+}
+
 struct Standing: Codable, Hashable, Sendable {
     var id: FlexibleID?
     var placement: Int?
@@ -251,6 +309,24 @@ struct ExportDocument: Codable, Hashable, Sendable {
     var entrants: [Entrant]
     var standings: [Standing]
     var phases: [PhaseExport]
+
+    var isCompleteExport: Bool {
+        guard schemaVersion == 1,
+              !source.eventSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !source.apiMode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              summary.phaseCount == event.phases.count,
+              phases.map(\.id) == event.phases.map(\.id) else {
+            return false
+        }
+
+        let sets = phases.flatMap(\.sets)
+        return summary.entrantCount == entrants.count &&
+            summary.standingCount == standings.count &&
+            summary.setCount == sets.count &&
+            summary.completedSetCount == sets.filter { StartGGSetState.isCompleted($0.state) }.count &&
+            summary.pendingSetCount == sets.filter { StartGGSetState.isPending($0.state) }.count &&
+            summary.startedSetCount == sets.filter { StartGGSetState.isActive($0.state) }.count
+    }
 }
 
 enum StartGGSetState: Int, Sendable {
