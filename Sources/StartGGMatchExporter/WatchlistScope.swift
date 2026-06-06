@@ -332,11 +332,13 @@ enum WatchlistScopeBuilder {
         var values: [String] = []
         if let name = entrant.name {
             values.append(name)
+            values.append(contentsOf: prefixCandidates(from: name))
         }
         for participant in entrant.participants ?? [] {
             if let gamerTag = participant.gamerTag {
                 values.append(gamerTag)
                 if let prefix = participant.prefix, !prefix.isEmpty {
+                    values.append(prefix)
                     values.append("\(prefix) \(gamerTag)")
                     values.append("\(prefix) | \(gamerTag)")
                 }
@@ -345,6 +347,7 @@ enum WatchlistScopeBuilder {
                 if let gamerTag = player.gamerTag {
                     values.append(gamerTag)
                     if let prefix = player.prefix, !prefix.isEmpty {
+                        values.append(prefix)
                         values.append("\(prefix) \(gamerTag)")
                         values.append("\(prefix) | \(gamerTag)")
                     }
@@ -352,6 +355,17 @@ enum WatchlistScopeBuilder {
             }
         }
         return Array(Set(values))
+    }
+
+    private static func prefixCandidates(from name: String) -> [String] {
+        for separator in [" | ", "｜"] {
+            let parts = name.components(separatedBy: separator)
+            if parts.count > 1 {
+                let prefix = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                return prefix.isEmpty ? [] : [prefix]
+            }
+        }
+        return []
     }
 
     private static func report(

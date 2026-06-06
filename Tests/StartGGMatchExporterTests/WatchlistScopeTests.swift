@@ -33,6 +33,18 @@ struct WatchlistScopeTests {
         #expect(tokido?.pendingSetCount == 1)
     }
 
+    @Test("Matches team prefix queries")
+    func matchesTeamPrefixQueries() {
+        let document = sampleDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "DFM")
+
+        let match = scope.queries.first { $0.query == "DFM" }?.matches.first
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(match?.entrant.name == "DFM | Itabashi Zangief")
+        #expect(match?.matchReason == "exact")
+        #expect(match?.matchedValue == "DFM")
+    }
+
     @Test("Creates markdown report")
     func createsMarkdown() {
         let scope = WatchlistScopeBuilder.build(from: sampleDocument(), watchlistText: "Tokido")
@@ -47,6 +59,7 @@ struct WatchlistScopeTests {
         let tokido = entrant(id: "1", name: "ROHTO Z! Tokido", tag: "Tokido", seed: 1)
         let kakeru = entrant(id: "2", name: "IBUSHIGIN | Kakeru", tag: "Kakeru", seed: 2)
         let punk = entrant(id: "3", name: "Punk", tag: "Punk", seed: 3)
+        let itabashi = entrant(id: "4", name: "DFM | Itabashi Zangief", tag: "Itabashi Zangief", seed: 4)
 
         let completed = ExportSet(
             SetNode(
@@ -92,7 +105,7 @@ struct WatchlistScopeTests {
             id: FlexibleID("e1"),
             name: "Street Fighter 6",
             slug: "tournament/test/event/street-fighter-6",
-            numEntrants: 3,
+            numEntrants: 4,
             type: 1,
             videogame: nil,
             tournament: TournamentSummary(id: FlexibleID("t1"), name: "Test", slug: "tournament/test", timezone: "UTC"),
@@ -108,9 +121,9 @@ struct WatchlistScopeTests {
                 apiEndpoint: "https://api.start.gg/gql/alpha",
                 apiMode: StartGGAPIMode.authenticatedFast.rawValue
             ),
-            summary: ExportSummary(phaseCount: 1, entrantCount: 3, standingCount: 0, setCount: 2, completedSetCount: 1, pendingSetCount: 1, startedSetCount: 0),
+            summary: ExportSummary(phaseCount: 1, entrantCount: 4, standingCount: 0, setCount: 2, completedSetCount: 1, pendingSetCount: 1, startedSetCount: 0),
             event: event,
-            entrants: [tokido, kakeru, punk],
+            entrants: [tokido, kakeru, punk, itabashi],
             standings: [
                 Standing(id: FlexibleID("st1"), placement: 1, entrant: tokido)
             ],
