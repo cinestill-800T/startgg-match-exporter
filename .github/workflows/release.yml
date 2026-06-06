@@ -1,0 +1,45 @@
+name: Build macOS Release App
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to upload the app zip to"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    name: Build and upload app zip
+    runs-on: macos-latest
+    env:
+      APP_NAME: StartGGMatchExporter
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Run tests
+        run: swift test
+
+      - name: Build release app bundle
+        run: Scripts/build_app.sh release
+
+      - name: Upload app zip to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          asset="release/${APP_NAME}-macOS-release.zip"
+          test -f "$asset"
+          gh release upload "$RELEASE_TAG" "$asset" --clobber

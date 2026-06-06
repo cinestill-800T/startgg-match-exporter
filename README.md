@@ -26,11 +26,12 @@ Create a token in start.gg Developer Settings and paste it into the app to enabl
 
 ## Usage
 
-1. Open `release/StartGGMatchExporter.app`.
-2. Paste a start.gg event URL, for example `https://www.start.gg/tournament/.../event/street-fighter-6`.
-3. Paste your start.gg API token for authenticated official API access, or leave it blank for Public Safe Mode.
-4. Click `Fetch Data`.
-5. Click `Analysis`.
+1. Download `StartGGMatchExporter-macOS-release.zip` from the GitHub Releases page.
+2. Unzip it and open `StartGGMatchExporter.app`.
+3. Paste a start.gg event URL, for example `https://www.start.gg/tournament/.../event/street-fighter-6`.
+4. Paste your start.gg API token for authenticated official API access, or leave it blank for Public Safe Mode.
+5. Click `Fetch Data`.
+6. Click `Analysis`.
 
 The exporter accepts normal event URLs and bracket URLs. It normalizes them to a start.gg event slug internally.
 
@@ -134,6 +135,8 @@ The script places built artifacts directly under:
 
 - `debug/`
 - `release/`
+
+Built app bundles and zip files are ignored by Git. When a GitHub Release is published, GitHub Actions builds the release app and uploads `StartGGMatchExporter-macOS-release.zip` to that release automatically. The same workflow can be rerun manually with `workflow_dispatch` by entering an existing release tag.
 
 ## API Notes
 
