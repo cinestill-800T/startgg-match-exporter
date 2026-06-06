@@ -31,7 +31,6 @@ struct ContentView: View {
             summaryPanel
             statusPanel
             watchlistPanel
-            logPanel
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -115,10 +114,6 @@ struct ContentView: View {
             .controlSize(.small)
 
             HStack(spacing: 8) {
-                Toggle("Use local cache", isOn: $viewModel.useCache)
-                    .toggleStyle(.checkbox)
-                    .help("When enabled, the app uses cached entrants, standings, and completed phases as a base, then fetches missing or still-active phases.")
-
                 Spacer()
 
                 Button {
@@ -171,26 +166,29 @@ struct ContentView: View {
             Divider()
                 .padding(.vertical, 2)
 
-            Button {
-                viewModel.fetch()
-            } label: {
-                Label("Fetch Data", systemImage: "arrow.down.doc")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .keyboardShortcut(.return, modifiers: [.command])
-            .disabled(!viewModel.canStart)
-            .help("Fetch entrants, standings, phases, and sets. Token input automatically enables the official API with safe pacing.")
-
-            HStack(spacing: 8) {
+            VStack(spacing: 8) {
                 Button {
-                    viewModel.fetch(forceRefresh: true)
+                    viewModel.fetch()
                 } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Label("Fetch", systemImage: "arrow.down.doc")
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.return, modifiers: [.command])
                 .disabled(!viewModel.canStart)
-                .help("Ignore local cache and fetch a fresh export from start.gg.")
+                .help("Fetch entrants, standings, phases, and sets. Token input automatically enables the official API with safe pacing.")
+
+                Button {
+                    viewModel.saveAnalysisPacket()
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(!viewModel.canSaveAnalysisPacket)
+                .help(viewModel.aiExportModeHelpText)
 
                 if viewModel.isWorking {
                     Button(role: .cancel) {
@@ -199,14 +197,6 @@ struct ContentView: View {
                         Label("Cancel", systemImage: "stop.circle")
                     }
                     .help("Cancel the current export. Finished phases are kept in the local cache and can be reused by the next fetch.")
-                } else {
-                    Button {
-                        viewModel.saveAnalysisPacket()
-                    } label: {
-                        Label("Analysis", systemImage: "tablecells")
-                    }
-                    .disabled(!viewModel.canSaveAnalysisPacket)
-                    .help(viewModel.aiExportModeHelpText)
                 }
             }
         }
@@ -221,6 +211,14 @@ struct ContentView: View {
                 metric("Sets", value: viewModel.totalSetCount)
                 metric("Complete", value: viewModel.completedSetCount)
                 metric("Pending", value: viewModel.pendingSetCount)
+            }
+
+            if let bracketSummaryText = viewModel.bracketSummaryText,
+               !bracketSummaryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(bracketSummaryText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -241,29 +239,6 @@ struct ContentView: View {
                     .lineLimit(2)
             }
 
-            if let outputURL = viewModel.lastOutputURL {
-                Text(outputURL.path)
-                    .font(.footnote.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .help(outputURL.path)
-            }
-        }
-    }
-
-    private var logPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            panelTitle("Activity")
-            TextEditor(text: .constant(viewModel.logText))
-                .font(.system(.body, design: .monospaced))
-                .scrollContentBackground(.hidden)
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
-                )
-                .frame(maxHeight: .infinity)
         }
     }
 
@@ -306,24 +281,16 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: 8) {
-                        Button {
-                            viewModel.saveWatchlistJSON()
-                        } label: {
-                            Label("JSON", systemImage: "doc.badge.gearshape")
-                        }
-                        .disabled(!viewModel.canSaveWatchlistScope)
-                        .help("Save watchlist-scoped structured data as JSON.")
-
-                        Button {
-                            viewModel.saveWatchlistMarkdown()
-                        } label: {
-                            Label("Markdown", systemImage: "doc.plaintext")
-                        }
-                        .disabled(!viewModel.canSaveWatchlistScope)
-                        .help("Save a compact watchlist report as Markdown.")
+                    Button {
+                        viewModel.saveWatchlistMarkdown()
+                    } label: {
+                        Label("Export Markdown", systemImage: "doc.plaintext")
+                            .frame(maxWidth: .infinity)
                     }
-                    .controlSize(.small)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(!viewModel.canSaveWatchlistScope)
+                    .help("Save a compact watchlist report as Markdown.")
                 }
                 .frame(width: 245, alignment: .topLeading)
             }

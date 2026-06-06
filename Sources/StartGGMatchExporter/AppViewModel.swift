@@ -19,14 +19,10 @@ final class AppViewModel: ObservableObject {
     @Published var pendingSetCount = 0
     @Published var totalSetCount = 0
     @Published var entrantCount = 0
+    @Published private(set) var bracketSummaryText: String?
     @Published var watchlistText = "" {
         didSet {
             UserDefaults.standard.set(watchlistText, forKey: Self.lastWatchlistTextDefaultsKey)
-        }
-    }
-    @Published var useCache = true {
-        didSet {
-            UserDefaults.standard.set(useCache, forKey: Self.useCacheDefaultsKey)
         }
     }
     @Published var aiExportMode: AIExportMode = .full {
@@ -38,16 +34,12 @@ final class AppViewModel: ObservableObject {
     private var currentTask: Task<Void, Never>?
     private static let lastEventURLDefaultsKey = "lastEventURL"
     private static let lastWatchlistTextDefaultsKey = "lastWatchlistText"
-    private static let useCacheDefaultsKey = "useCache"
     private static let aiExportModeDefaultsKey = "aiExportMode"
 
     init() {
         token = (try? KeychainTokenStore.load()) ?? ""
         eventURL = UserDefaults.standard.string(forKey: Self.lastEventURLDefaultsKey) ?? ""
         watchlistText = UserDefaults.standard.string(forKey: Self.lastWatchlistTextDefaultsKey) ?? ""
-        if UserDefaults.standard.object(forKey: Self.useCacheDefaultsKey) != nil {
-            useCache = UserDefaults.standard.bool(forKey: Self.useCacheDefaultsKey)
-        }
         if let rawMode = UserDefaults.standard.string(forKey: Self.aiExportModeDefaultsKey),
            let mode = AIExportMode(rawValue: rawMode) {
             aiExportMode = mode
@@ -130,6 +122,7 @@ final class AppViewModel: ObservableObject {
         pendingSetCount = 0
         totalSetCount = 0
         entrantCount = 0
+        bracketSummaryText = nil
         progressMessage = "Starting \(apiMode.title)"
         logLines.removeAll()
 
@@ -142,8 +135,8 @@ final class AppViewModel: ObservableObject {
             let configurationResult = ExportConfigurationStore.loadOrCreate()
             let options = configurationResult.configuration.options(for: mode)
             await MainActor.run {
-                if let url = configurationResult.url {
-                    self.appendLog("Config: \(url.path)")
+                if configurationResult.url != nil {
+                    self.appendLog("Config loaded.")
                 }
                 if let warning = configurationResult.warning {
                     self.appendLog(warning)
@@ -151,7 +144,7 @@ final class AppViewModel: ObservableObject {
             }
 
             let cachedDocument: ExportDocument?
-            if !forceRefresh, self.useCache {
+            if !forceRefresh {
                 do {
                     let slug = try StartGGURLParser.eventSlug(from: inputURL)
                     cachedDocument = ExportCache.cachedDocument(for: slug, mode: mode)
@@ -179,6 +172,7 @@ final class AppViewModel: ObservableObject {
             } partialDocumentHandler: { [weak self] partialDocument in
                 ExportCache.save(partialDocument)
                 await MainActor.run {
+                    self?.updateBracketSummary(from: partialDocument)
                     self?.appendLog("Saved partial cache: \(partialDocument.phases.count)/\(partialDocument.event.phases.count) phases.")
                 }
             }
@@ -189,7 +183,7 @@ final class AppViewModel: ObservableObject {
                     ExportCache.save(document)
                     self.apply(document: document, mode: mode)
                     self.progressMessage = "Fetched \(document.summary.setCount) sets."
-                    self.appendLog("Saved cache for \(document.source.eventSlug).")
+                    self.appendLog("Saved cache.")
                     if !self.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         let preview = WatchlistScopeBuilder.preview(for: self.watchlistText, document: document)
                         self.appendLog("Watchlist: \(preview.summaryText)")
@@ -257,39 +251,12 @@ final class AppViewModel: ObservableObject {
             let options = AIExportOptions(mode: aiExportMode, watchlistText: watchlistText)
             let files = try AIExportBuilder.writePacket(document: lastDocument, to: folderURL, options: options)
             lastOutputURL = folderURL
-            appendLog("Saved analysis pack: \(folderURL.path)")
+            appendLog("Saved analysis pack.")
             appendLog("AI output mode: \(aiExportMode.title)")
             appendLog("Analysis files: \(files.count)")
             NSWorkspace.shared.activateFileViewerSelecting([folderURL])
         } catch {
             appendLog("Analysis pack save failed: \(error.localizedDescription)")
-        }
-    }
-
-    func saveWatchlistJSON() {
-        guard let scope = makeWatchlistScope() else {
-            appendLog("Fetch data and paste watchlist names before saving a focused JSON.")
-            return
-        }
-
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.canCreateDirectories = true
-        panel.directoryURL = downloadsDirectory()
-        let name = sanitizedFileName(lastDocument?.event.name ?? "startgg-event")
-        panel.nameFieldStringValue = "\(name)-watchlist.json"
-
-        guard panel.runModal() == .OK, let url = panel.url else {
-            appendLog("Watchlist JSON save cancelled.")
-            return
-        }
-
-        do {
-            let data = try WatchlistScopeBuilder.encodeJSON(scope)
-            try data.write(to: url, options: .atomic)
-            appendLog("Saved watchlist JSON: \(url.path)")
-        } catch {
-            appendLog("Watchlist JSON save failed: \(error.localizedDescription)")
         }
     }
 
@@ -314,7 +281,7 @@ final class AppViewModel: ObservableObject {
         do {
             let markdown = WatchlistScopeBuilder.markdown(from: scope)
             try Data(markdown.utf8).write(to: url, options: .atomic)
-            appendLog("Saved watchlist Markdown: \(url.path)")
+            appendLog("Saved watchlist Markdown.")
         } catch {
             appendLog("Watchlist Markdown save failed: \(error.localizedDescription)")
         }
@@ -334,7 +301,7 @@ final class AppViewModel: ObservableObject {
             return
         }
         NSWorkspace.shared.activateFileViewerSelecting([url])
-        appendLog("Config: \(url.path)")
+        appendLog("Config opened.")
     }
 
     private func apply(document: ExportDocument, mode: StartGGAPIMode) {
@@ -344,6 +311,7 @@ final class AppViewModel: ObservableObject {
         pendingSetCount = document.summary.pendingSetCount
         totalSetCount = document.summary.setCount
         entrantCount = document.summary.entrantCount
+        updateBracketSummary(from: document)
         appendLog("Event: \(document.event.name ?? document.event.id.value)")
         appendLog("Mode: \(mode.title)")
         appendLog("Entrants: \(document.summary.entrantCount)")
@@ -366,6 +334,119 @@ final class AppViewModel: ObservableObject {
             return nil
         }
         return ExportCache.cachedDocument(for: slug, mode: mode)
+    }
+
+    private func updateBracketSummary(from document: ExportDocument) {
+        bracketSummaryText = Self.bracketSummaryText(for: document)
+    }
+
+    private static func bracketSummaryText(for document: ExportDocument) -> String? {
+        let eventPhases = document.event.phases
+        guard !eventPhases.isEmpty else {
+            return nil
+        }
+
+        let fetchedPhaseCount = document.phases.count
+        let totalPhaseCount = eventPhases.count
+        let setSummary = document.summary.setCount > 0
+            ? "\(document.summary.completedSetCount)/\(document.summary.setCount) sets"
+            : nil
+        let phaseSummary = "\(fetchedPhaseCount)/\(totalPhaseCount) phases"
+
+        guard fetchedPhaseCount > 0 else {
+            let firstPhaseName = phaseDisplayName(from: eventPhases[0])
+            var text = "Bracket: waiting for \(firstPhaseName)"
+            let details = [setSummary, phaseSummary].compactMap { $0 }
+            if !details.isEmpty {
+                text += " (\(details.joined(separator: ", ")))"
+            }
+            return text
+        }
+
+        let currentIndex = min(fetchedPhaseCount - 1, totalPhaseCount - 1)
+        let currentPhase = document.phases[min(currentIndex, document.phases.count - 1)]
+        let currentPhaseName = phaseDisplayName(from: currentPhase, fallback: eventPhases[currentIndex])
+        let status = bracketPhaseStatus(for: currentPhase)
+        var text = "Bracket: \(currentPhaseName) \(status)"
+        let percentSummary = currentPhase.percentComplete.map { value -> String in
+            "\(value)%"
+        }
+        let details = [percentSummary, setSummary, phaseSummary].compactMap { $0 }
+        if !details.isEmpty {
+            text += " (\(details.joined(separator: ", ")))"
+        }
+        if let nextPhaseName = nextBracketPhaseName(
+            currentPhase: currentPhase,
+            currentIndex: currentIndex,
+            eventPhases: eventPhases
+        ) {
+            text += "; next \(nextPhaseName)"
+        }
+        return text
+    }
+
+    private static func bracketPhaseStatus(for phase: PhaseExport) -> String {
+        let completedSetCount = phase.sets.filter { StartGGSetState.isCompleted($0.state) }.count
+        let hasActiveSet = phase.sets.contains { StartGGSetState.isActive($0.state) }
+        let hasPendingSet = phase.sets.contains { StartGGSetState.isPending($0.state) }
+
+        if let percentComplete = phase.percentComplete {
+            if percentComplete >= 100 || (!hasActiveSet && !hasPendingSet && !phase.sets.isEmpty && completedSetCount == phase.sets.count) {
+                return "complete"
+            }
+            if percentComplete > 0 || hasActiveSet || hasPendingSet || completedSetCount > 0 {
+                return "in progress"
+            }
+            return "pending"
+        }
+
+        if !phase.sets.isEmpty {
+            if !hasActiveSet && !hasPendingSet && completedSetCount == phase.sets.count {
+                return "complete"
+            }
+            return "in progress"
+        }
+
+        return "pending"
+    }
+
+    private static func nextBracketPhaseName(
+        currentPhase: PhaseExport,
+        currentIndex: Int,
+        eventPhases: [PhaseSummary]
+    ) -> String? {
+        if let destination = currentPhase.destPhases?.first {
+            let name = phaseDisplayName(from: destination)
+            if !name.isEmpty {
+                return name
+            }
+        }
+
+        let nextIndex = currentIndex + 1
+        guard nextIndex < eventPhases.count else {
+            return nil
+        }
+        return phaseDisplayName(from: eventPhases[nextIndex])
+    }
+
+    private static func phaseDisplayName(from phase: PhaseSummary) -> String {
+        phaseDisplayName(from: phase.name, fallback: phase.id.value)
+    }
+
+    private static func phaseDisplayName(from phase: DestinationPhase) -> String {
+        phaseDisplayName(from: phase.name, fallback: phase.id.value)
+    }
+
+    private static func phaseDisplayName(from phase: PhaseExport, fallback: PhaseSummary) -> String {
+        phaseDisplayName(from: phase.name, fallback: fallback.name ?? fallback.id.value)
+    }
+
+    private static func phaseDisplayName(from value: String?, fallback: String) -> String {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let trimmed, !trimmed.isEmpty {
+            return trimmed
+        }
+        return fallback
     }
 
     private func downloadsDirectory() -> URL? {

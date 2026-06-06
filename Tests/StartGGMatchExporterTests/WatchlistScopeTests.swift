@@ -50,9 +50,12 @@ struct WatchlistScopeTests {
         let scope = WatchlistScopeBuilder.build(from: sampleDocument(), watchlistText: "Tokido")
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
 
-        #expect(markdown.contains("# Street Fighter 6 Watchlist"))
+        #expect(markdown.contains("# Street Fighter 6 選手ウォッチレポート"))
         #expect(markdown.contains("### ROHTO Z! Tokido"))
-        #expect(markdown.contains("| Phase | Group | Round | State | Result | Score | Opponent | Display |"))
+        #expect(markdown.contains("| 状況 | 場所 | ラウンド | 対戦カード | 勝敗 |"))
+        #expect(markdown.contains("ROHTO Z! Tokido vs IBUSHIGIN \\| Kakeru"))
+        #expect(markdown.contains("ROHTO Z! Tokido 2 - 0 Punk"))
+        #expect(markdown.contains("| 終了 | Round 1 / A101 | Winners Round 1 | ROHTO Z! Tokido 2 - 0 Punk | 勝ち |"))
     }
 
     private func sampleDocument() -> ExportDocument {

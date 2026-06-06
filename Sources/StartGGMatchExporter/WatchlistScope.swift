@@ -164,21 +164,23 @@ enum WatchlistScopeBuilder {
 
     static func markdown(from document: WatchlistExportDocument) -> String {
         var lines: [String] = []
-        lines.append("# \(document.event.name ?? "start.gg Event") Watchlist")
+        lines.append("# \(document.event.name ?? "start.gg Event") 選手ウォッチレポート")
         lines.append("")
-        lines.append("- Generated: \(document.generatedAt)")
-        lines.append("- Source: \(document.source.inputURL)")
-        lines.append("- Mode: \(document.source.apiMode)")
-        lines.append("- Queries: \(document.summary.matchedQueryCount)/\(document.summary.queryCount) matched")
-        lines.append("- Entrants: \(document.summary.matchedEntrantCount)")
-        lines.append("- Related sets: \(document.summary.relatedSetCount)")
+        lines.append("## 概要")
+        lines.append("")
+        lines.append("- 作成日時: \(document.generatedAt)")
+        lines.append("- 対象URL: \(document.source.inputURL)")
+        lines.append("- 取得モード: \(document.source.apiMode)")
+        lines.append("- 検索一致: \(document.summary.matchedQueryCount)/\(document.summary.queryCount) 件")
+        lines.append("- 対象選手: \(document.summary.matchedEntrantCount) 名")
+        lines.append("- 関連試合: \(document.summary.relatedSetCount) 件（終了 \(document.summary.completedRelatedSetCount) / 未完了 \(document.summary.pendingRelatedSetCount)）")
         lines.append("")
 
         for query in document.queries {
-            lines.append("## \(query.query)")
+            lines.append("## 検索: \(query.query)")
             if query.matches.isEmpty {
                 lines.append("")
-                lines.append("No entrant matched.")
+                lines.append("一致する選手が見つかりませんでした。")
                 lines.append("")
                 continue
             }
@@ -188,35 +190,42 @@ enum WatchlistScopeBuilder {
                 lines.append("")
                 lines.append("### \(name)")
                 lines.append("")
-                lines.append("- Match: \(report.matchReason) (`\(report.matchedValue)`)")
+                lines.append("- 一致理由: \(localizedMatchReason(report.matchReason))（`\(report.matchedValue)`）")
                 if let seed = report.entrant.initialSeedNum {
-                    lines.append("- Seed: \(seed)")
+                    lines.append("- シード: \(seed)")
                 }
                 if let placement = report.standingPlacement, placement > 0 {
-                    lines.append("- Standing placement: \(placement)")
+                    lines.append("- 現在順位: \(placement)位")
                 }
-                lines.append("- Record in fetched sets: \(report.wins)-\(report.losses)")
-                lines.append("- Pending/active sets: \(report.pendingSetCount)")
+                lines.append("- 取得済み戦績: \(report.wins)勝\(report.losses)敗")
+                lines.append("- 未完了・進行中: \(report.pendingSetCount)件")
                 if let latestPhaseName = report.latestPhaseName {
                     let group = report.latestPhaseGroup?.displayIdentifier.map { " / \($0)" } ?? ""
-                    lines.append("- Latest context: \(latestPhaseName)\(group)")
+                    lines.append("- 直近の場所: \(latestPhaseName)\(group)")
                 }
                 lines.append("")
-                lines.append("| Phase | Group | Round | State | Result | Score | Opponent | Display |")
-                lines.append("|---|---|---|---|---|---|---|---|")
 
-                for context in report.sets {
-                    let phase = markdownCell(context.phaseName ?? context.phaseId.value)
-                    let group = markdownCell(context.phaseGroup?.displayIdentifier ?? "")
-                    let round = markdownCell(context.set.fullRoundText ?? context.set.identifier ?? "")
-                    let state = markdownCell(context.set.stateLabel)
-                    let result = markdownCell(context.result)
-                    let score = markdownCell(scoreText(watched: context.watchedScore, opponent: context.opponentScore))
-                    let opponents = markdownCell(context.opponents.compactMap(\.name).joined(separator: ", "))
-                    let display = markdownCell(context.set.displayScore ?? "")
-                    lines.append("| \(phase) | \(group) | \(round) | \(state) | \(result) | \(score) | \(opponents) | \(display) |")
+                let pendingOrActiveSets = report.sets.filter { !StartGGSetState.isCompleted($0.set.state) }
+                let completedSets = report.sets.filter { StartGGSetState.isCompleted($0.set.state) }.reversed()
+
+                if !pendingOrActiveSets.isEmpty {
+                    lines.append("#### 次の試合・進行中")
+                    lines.append("")
+                    appendMatchTable(Array(pendingOrActiveSets), to: &lines)
+                    lines.append("")
                 }
-                lines.append("")
+
+                if !completedSets.isEmpty {
+                    lines.append("#### 取得済みの試合結果")
+                    lines.append("")
+                    appendMatchTable(Array(completedSets), to: &lines)
+                    lines.append("")
+                }
+
+                if report.sets.isEmpty {
+                    lines.append("取得済みデータ内に関連試合はありません。")
+                    lines.append("")
+                }
             }
         }
 
@@ -446,6 +455,71 @@ enum WatchlistScopeBuilder {
             .replacingOccurrences(of: "\n", with: " ")
     }
 
+    private static func appendMatchTable(_ contexts: [WatchlistSetContext], to lines: inout [String]) {
+        lines.append("| 状況 | 場所 | ラウンド | 対戦カード | 勝敗 |")
+        lines.append("|---|---|---|---|---|")
+
+        for context in contexts {
+            let state = markdownCell(localizedStateLabel(context.set.stateLabel))
+            let location = markdownCell(locationText(for: context))
+            let round = markdownCell(context.set.fullRoundText ?? context.set.identifier ?? "")
+            let matchup = markdownCell(matchupText(for: context))
+            let result = markdownCell(localizedResult(context.result))
+            lines.append("| \(state) | \(location) | \(round) | \(matchup) | \(result) |")
+        }
+    }
+
+    private static func localizedMatchReason(_ reason: String) -> String {
+        switch reason {
+        case "exact":
+            return "完全一致"
+        case "compact exact":
+            return "記号・空白を除いた完全一致"
+        case "contains":
+            return "部分一致"
+        case "compact contains":
+            return "記号・空白を除いた部分一致"
+        default:
+            return reason
+        }
+    }
+
+    private static func localizedStateLabel(_ state: String) -> String {
+        switch state {
+        case "completed":
+            return "終了"
+        case "pending":
+            return "未開始"
+        case "active":
+            return "進行中"
+        default:
+            return "不明"
+        }
+    }
+
+    private static func localizedResult(_ result: String) -> String {
+        switch result {
+        case "win":
+            return "勝ち"
+        case "loss":
+            return "負け"
+        case "pending":
+            return "予定"
+        case "active":
+            return "進行中"
+        default:
+            return "不明"
+        }
+    }
+
+    private static func locationText(for context: WatchlistSetContext) -> String {
+        let phase = context.phaseName ?? context.phaseId.value
+        guard let group = context.phaseGroup?.displayIdentifier, !group.isEmpty else {
+            return phase
+        }
+        return "\(phase) / \(group)"
+    }
+
     private static func scoreText(watched: Double?, opponent: Double?) -> String {
         guard watched != nil || opponent != nil else {
             return ""
@@ -461,6 +535,28 @@ enum WatchlistScopeBuilder {
             return String(Int(value))
         }
         return String(value)
+    }
+
+    private static func matchupText(for context: WatchlistSetContext) -> String {
+        let watchedName = entrantName(from: context.watchedEntrantId, in: context.set)
+        let opponents = context.opponents.map { $0.name ?? $0.id.value }
+
+        guard !opponents.isEmpty else {
+            return watchedName
+        }
+
+        if StartGGSetState.isCompleted(context.set.state),
+           let opponent = opponents.first,
+           context.opponents.count == 1,
+           context.watchedScore != nil || context.opponentScore != nil {
+            return "\(watchedName) \(formatScore(context.watchedScore)) - \(formatScore(context.opponentScore)) \(opponent)"
+        }
+
+        return "\(watchedName) vs \(opponents.joined(separator: ", "))"
+    }
+
+    private static func entrantName(from entrantId: FlexibleID, in set: ExportSet) -> String {
+        set.slots.first { $0.entrant?.id == entrantId }?.entrant?.name ?? entrantId.value
     }
 }
 
