@@ -45,6 +45,23 @@ struct WatchlistScopeTests {
         #expect(match?.matchedValue == "DFM")
     }
 
+    @Test("Excludes watchlist matches by excluded words")
+    func excludesWatchlistMatchesByExcludedWords() {
+        let document = sampleDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "DFM\nTokido", excludedText: "Itabashi")
+        let dfm = scope.queries.first { $0.query == "DFM" }
+        let tokido = scope.queries.first { $0.query == "Tokido" }
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(scope.exclusionQueries == ["Itabashi"])
+        #expect(scope.summary.queryCount == 2)
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(dfm?.matches.isEmpty == true)
+        #expect(tokido?.matches.first?.entrant.name == "ROHTO Z! Tokido")
+        #expect(markdown.contains("- 除外ワード: Itabashi"))
+        #expect(!markdown.contains("### DFM | Itabashi Zangief"))
+    }
+
     @Test("Merges sparse standings entrants without losing watchlist candidates")
     func mergesSparseStandingsEntrantsWithoutLosingWatchlistCandidates() {
         var document = sampleDocument()
@@ -77,11 +94,164 @@ struct WatchlistScopeTests {
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
 
         #expect(markdown.contains("# Street Fighter 6 選手ウォッチレポート"))
-        #expect(markdown.contains("### ROHTO Z! Tokido"))
-        #expect(markdown.contains("| 状況 | 場所 | ラウンド | 対戦カード | 勝敗 |"))
-        #expect(markdown.contains("ROHTO Z! Tokido vs IBUSHIGIN \\| Kakeru"))
-        #expect(markdown.contains("ROHTO Z! Tokido 2 - 0 Punk"))
-        #expect(markdown.contains("| 終了 | Round 1 / A101 | Winners Round 1 | ROHTO Z! Tokido 2 - 0 Punk | 勝ち |"))
+        #expect(markdown.contains("## 目次"))
+        #expect(markdown.contains("## ウォッチ対象者の直近完了試合"))
+        #expect(markdown.contains("- [概要](#概要)"))
+        #expect(markdown.contains("- [検索: Tokido](#検索-tokido)"))
+        #expect(markdown.contains("  - [ROHTO Z! Tokido](#rohto-z-tokido)"))
+        #expect(!markdown.contains("<a id="))
+        #expect(markdown.contains("### ROHTO Z! Tokido\n\n![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-brightgreen) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-blue)"))
+        #expect(markdown.contains("| 対象者 | 勝敗 | 相手 | スコア | 文脈 |"))
+        #expect(markdown.contains("| 状況 | 場所 | ラウンド | 選手 | スコア | 相手 | 勝敗 |"))
+        #expect(markdown.contains("| 未開始 | Round 1 / A101 | Winners Round 2 | ROHTO Z! Tokido |  | IBUSHIGIN \\| Kakeru | 予定 |"))
+        #expect(markdown.contains("| 終了 | Round 1 / A101 | Winners Round 1 | ROHTO Z! Tokido | 2 - 0 | Punk | 勝ち |"))
+    }
+
+    @Test("Shows badges for losers-side active matches")
+    func showsBadgesForLosersSideActiveMatches() {
+        var document = sampleDocument()
+        document.phases[0].sets[1].fullRoundText = "Losers Round 2"
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(markdown.contains("![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-brightgreen)"))
+        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-orange)"))
+    }
+
+    @Test("Prefers the newest unfinished set when multiple unfinished sets exist")
+    func prefersNewestUnfinishedSetForBracketSide() {
+        var document = sampleDocument()
+        document.phases[0].sets.append(
+            ExportSet(
+                SetNode(
+                    id: FlexibleID("s3"),
+                    identifier: "C",
+                    state: 1,
+                    round: 3,
+                    fullRoundText: "Losers Round 3",
+                    displayScore: nil,
+                    winnerId: nil,
+                    completedAt: nil,
+                    startedAt: nil,
+                    updatedAt: 3,
+                    phaseGroup: PhaseGroupRef(id: FlexibleID("pg1"), displayIdentifier: "A101"),
+                    slots: [
+                        slot(entrant: document.entrants.first { $0.id.value == "1" }, score: nil, placement: nil),
+                        slot(entrant: document.entrants.first { $0.id.value == "4" }, score: nil, placement: nil)
+                    ]
+                )
+            )
+        )
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-orange)"))
+    }
+
+    @Test("Shows badges for elimination state with no unfinished matches")
+    func showsBadgesForEliminationStateWithNoUnfinishedMatches() {
+        let scope = WatchlistScopeBuilder.build(from: eliminationDocument(), watchlistText: "Tokido")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(markdown.contains("![状態: 敗退済み](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E6%95%97%E9%80%80%E6%B8%88%E3%81%BF-red)"))
+        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-orange)"))
+    }
+
+    @Test("Shows unknown badge when round text cannot be classified")
+    func showsUnknownBadgeWhenRoundTextCannotBeClassified() {
+        var document = sampleDocument()
+        document.phases[0].sets[1].fullRoundText = "Championship Qualifier"
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(markdown.contains("![ブラケット: 不明](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-%E4%B8%8D%E6%98%8E-lightgrey)"))
+    }
+
+    @Test("Uses the newest completed set when only completed sets exist")
+    func usesNewestCompletedSetWhenOnlyCompletedSetsExist() {
+        var document = sampleDocument()
+        document.phases[0].sets = [
+            document.phases[0].sets[0],
+            ExportSet(
+                SetNode(
+                    id: FlexibleID("s4"),
+                    identifier: "D",
+                    state: 3,
+                    round: 4,
+                    fullRoundText: "Losers Round 4",
+                    displayScore: "IBUSHIGIN | Kakeru 2 - ROHTO Z! Tokido 0",
+                    winnerId: FlexibleID("2"),
+                    completedAt: 4,
+                    startedAt: nil,
+                    updatedAt: 4,
+                    phaseGroup: PhaseGroupRef(id: FlexibleID("pg1"), displayIdentifier: "A101"),
+                    slots: [
+                        slot(entrant: document.entrants.first { $0.id.value == "1" }, score: 0, placement: 2),
+                        slot(entrant: document.entrants.first { $0.id.value == "2" }, score: 2, placement: 1)
+                    ]
+                )
+            )
+        ]
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-orange)"))
+    }
+
+    @Test("Shows the 10 most recent completed watchlist matches without duplicate sets")
+    func showsRecentCompletedMatchesSummary() {
+        let scope = WatchlistScopeBuilder.build(from: recentMatchesDocument(), watchlistText: "Tokido\nKakeru")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+        let summarySection = markdown.components(separatedBy: "## 概要").first ?? ""
+        let summaryLines = summarySection.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        let dataRows = summaryLines.filter { $0.hasPrefix("| ") && !$0.contains("対象者 |") }
+
+        #expect(markdown.contains("## ウォッチ対象者の直近完了試合"))
+        #expect(dataRows.count == 10)
+        #expect(dataRows.first?.contains("Round 11 / A101 / R11") == true)
+        #expect(dataRows.contains { $0.contains("対象者同士") })
+        #expect(!summarySection.contains("Round 1 / A101 / R1"))
+    }
+
+    @Test("Shows 未記録 for invalid completed scores in markdown")
+    func showsNotRecordedForInvalidCompletedScoresInMarkdown() {
+        var document = sampleDocument()
+        let punk = document.entrants.first { $0.id.value == "3" }
+        document.phases[0].sets[0].slots[1] = slot(entrant: punk, score: -1, placement: 2)
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(!markdown.contains("2 - -1"))
+        #expect(!markdown.contains("- -1"))
+        #expect(markdown.contains("| 終了 | Round 1 / A101 | Winners Round 1 | ROHTO Z! Tokido | 未記録 | Punk | 勝ち |"))
+    }
+
+    @Test("Shows 未記録 for completed scores with missing values in markdown")
+    func showsNotRecordedForMissingCompletedScoresInMarkdown() {
+        var document = sampleDocument()
+        let punk = document.entrants.first { $0.id.value == "3" }
+        document.phases[0].sets[0].slots[1] = slot(entrant: punk, score: nil, placement: 2)
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(markdown.contains("| 終了 | Round 1 / A101 | Winners Round 1 | ROHTO Z! Tokido | 未記録 | Punk | 勝ち |"))
+    }
+
+    @Test("Shows undecided opponent in pending match markdown")
+    func showsUndecidedOpponentInPendingMatchMarkdown() {
+        var document = sampleDocument()
+        document.phases[0].sets[1].slots[1] = slot(entrant: nil, score: nil, placement: nil)
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(markdown.contains("| 未開始 | Round 1 / A101 | Winners Round 2 | ROHTO Z! Tokido |  | 未定 | 予定 |"))
     }
 
     private func sampleDocument() -> ExportDocument {
@@ -173,6 +343,142 @@ struct WatchlistScopeTests {
         )
     }
 
+    private func recentMatchesDocument() -> ExportDocument {
+        let tokido = entrant(id: "1", name: "ROHTO Z! Tokido", tag: "Tokido", seed: 1)
+        let kakeru = entrant(id: "2", name: "IBUSHIGIN | Kakeru", tag: "Kakeru", seed: 2)
+        let punk = entrant(id: "3", name: "Punk", tag: "Punk", seed: 3)
+
+        let completedSets = (1...11).map { index -> ExportSet in
+            let winnerIsTokido = index % 2 == 1
+            let opponent = index == 11 ? kakeru : punk
+            let winner = winnerIsTokido ? tokido : opponent
+            return ExportSet(
+                SetNode(
+                    id: FlexibleID("s\(index)"),
+                    identifier: String(index),
+                    state: 3,
+                    round: index,
+                    fullRoundText: "Winners Round \(index)",
+                    displayScore: winnerIsTokido ? "ROHTO Z! Tokido 2 - \(opponent.name ?? opponent.id.value) 0" : "\(opponent.name ?? opponent.id.value) 2 - ROHTO Z! Tokido 0",
+                    winnerId: winner.id,
+                    completedAt: index,
+                    startedAt: nil,
+                    updatedAt: index,
+                    phaseGroup: PhaseGroupRef(id: FlexibleID("pg1"), displayIdentifier: "A101"),
+                    slots: [
+                        slot(entrant: tokido, score: winnerIsTokido ? 2 : 0, placement: winnerIsTokido ? 1 : 2),
+                        slot(entrant: opponent, score: winnerIsTokido ? 0 : 2, placement: winnerIsTokido ? 2 : 1)
+                    ]
+                )
+            )
+        }
+
+        let event = EventSummary(
+            id: FlexibleID("e1"),
+            name: "Street Fighter 6",
+            slug: "tournament/test/event/street-fighter-6",
+            numEntrants: 3,
+            type: 1,
+            videogame: nil,
+            tournament: TournamentSummary(id: FlexibleID("t1"), name: "Test", slug: "tournament/test", timezone: "UTC"),
+            phases: []
+        )
+
+        return ExportDocument(
+            schemaVersion: 1,
+            fetchedAt: "2026-05-23T00:00:00Z",
+            source: ExportSource(
+                inputURL: "https://www.start.gg/tournament/test/event/street-fighter-6",
+                eventSlug: "tournament/test/event/street-fighter-6",
+                apiEndpoint: "https://api.start.gg/gql/alpha",
+                apiMode: StartGGAPIMode.authenticatedFast.rawValue
+            ),
+            summary: ExportSummary(phaseCount: 1, entrantCount: 3, standingCount: 0, setCount: 11, completedSetCount: 11, pendingSetCount: 0, startedSetCount: 0),
+            event: event,
+            entrants: [tokido, kakeru, punk],
+            standings: [],
+            phases: [
+                PhaseExport(
+                    id: FlexibleID("p1"),
+                    name: "Round 11",
+                    state: "COMPLETED",
+                    groupCount: 1,
+                    bracketType: "DOUBLE_ELIMINATION",
+                    numSeeds: 3,
+                    percentComplete: 100,
+                    destPhases: [],
+                    phaseGroups: [],
+                    sets: completedSets
+                )
+            ]
+        )
+    }
+
+    private func eliminationDocument() -> ExportDocument {
+        let tokido = entrant(id: "1", name: "ROHTO Z! Tokido", tag: "Tokido", seed: 1)
+        let kakeru = entrant(id: "2", name: "IBUSHIGIN | Kakeru", tag: "Kakeru", seed: 2)
+
+        let eliminated = ExportSet(
+            SetNode(
+                id: FlexibleID("s-elim"),
+                identifier: "C",
+                state: 3,
+                round: 2,
+                fullRoundText: "Losers Round 2",
+                displayScore: "IBUSHIGIN | Kakeru 2 - ROHTO Z! Tokido 0",
+                winnerId: kakeru.id,
+                completedAt: 2,
+                startedAt: nil,
+                updatedAt: 2,
+                phaseGroup: PhaseGroupRef(id: FlexibleID("pg1"), displayIdentifier: "A101"),
+                slots: [
+                    slot(entrant: tokido, score: 0, placement: 2),
+                    slot(entrant: kakeru, score: 2, placement: 1)
+                ]
+            )
+        )
+
+        let event = EventSummary(
+            id: FlexibleID("e1"),
+            name: "Street Fighter 6",
+            slug: "tournament/test/event/street-fighter-6",
+            numEntrants: 2,
+            type: 1,
+            videogame: nil,
+            tournament: TournamentSummary(id: FlexibleID("t1"), name: "Test", slug: "tournament/test", timezone: "UTC"),
+            phases: []
+        )
+
+        return ExportDocument(
+            schemaVersion: 1,
+            fetchedAt: "2026-05-23T00:00:00Z",
+            source: ExportSource(
+                inputURL: "https://www.start.gg/tournament/test/event/street-fighter-6",
+                eventSlug: "tournament/test/event/street-fighter-6",
+                apiEndpoint: "https://api.start.gg/gql/alpha",
+                apiMode: StartGGAPIMode.authenticatedFast.rawValue
+            ),
+            summary: ExportSummary(phaseCount: 1, entrantCount: 2, standingCount: 0, setCount: 1, completedSetCount: 1, pendingSetCount: 0, startedSetCount: 0),
+            event: event,
+            entrants: [tokido, kakeru],
+            standings: [],
+            phases: [
+                PhaseExport(
+                    id: FlexibleID("p1"),
+                    name: "Round 1",
+                    state: "COMPLETED",
+                    groupCount: 1,
+                    bracketType: "DOUBLE_ELIMINATION",
+                    numSeeds: 2,
+                    percentComplete: 100,
+                    destPhases: [],
+                    phaseGroups: [],
+                    sets: [eliminated]
+                )
+            ]
+        )
+    }
+
     private func entrant(id: String, name: String, tag: String, seed: Int) -> Entrant {
         Entrant(
             id: FlexibleID(id),
@@ -189,9 +495,9 @@ struct WatchlistScopeTests {
         )
     }
 
-    private func slot(entrant: Entrant, score: Double?, placement: Int?) -> SetSlot {
+    private func slot(entrant: Entrant?, score: Double?, placement: Int?) -> SetSlot {
         SetSlot(
-            id: FlexibleID("slot-\(entrant.id.value)"),
+            id: FlexibleID("slot-\(entrant?.id.value ?? "empty")"),
             entrant: entrant,
             standing: SlotStanding(
                 placement: placement,

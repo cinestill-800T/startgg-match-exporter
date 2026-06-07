@@ -44,7 +44,7 @@ The app chooses the mode automatically:
 
 ## Watchlist Export
 
-After fetching an event, paste player names into the Watchlist field. The app matches those names against entrant names, gamer tags, and common prefix forms, then exports only the related sets.
+After fetching an event, paste player names into the Watchlist search field. The app matches those names against entrant names, gamer tags, and common prefix forms, then exports only the related sets. Add optional exclusion words in the lower Watchlist field to remove matching entrants from the focused export.
 
 Watchlist outputs:
 
@@ -100,7 +100,7 @@ For authenticated mode, the default request interval is `0.76` seconds, roughly 
 
 The generated `_notes` text is written in Japanese. If an older English config file already exists, the app refreshes only the explanatory `_notes` while preserving your numeric tuning values.
 
-The app also remembers the last event URL and Watchlist text you entered and restores them on the next launch. Save dialogs default to the macOS Downloads folder.
+The app also remembers the last event URL, Watchlist search text, and Watchlist exclusion text you entered and restores them on the next launch. Save dialogs default to the macOS Downloads folder.
 
 ## JSON Shape
 

@@ -104,6 +104,16 @@ struct AIExportTests {
         #expect(matches.map(\.setId) == [FlexibleID("s1"), FlexibleID("s2")])
     }
 
+    @Test("Watchlist focus applies excluded words")
+    func watchlistFocusAppliesExcludedWords() throws {
+        let options = AIExportOptions(mode: .watchlistFocus, watchlistText: "Tokido\nKakeru", excludedWatchlistText: "Kakeru")
+        let packet = AIExportBuilder.build(from: sampleDocument(), options: options)
+        let playerIds = Set(packet.players.map(\.entrantId))
+
+        #expect(playerIds.contains(FlexibleID("1")))
+        #expect(packet.metadata.notes.contains("Watchlist Focus matched 1 entrants from the current Watchlist text."))
+    }
+
     @Test("Live focus scopes analysis to active context")
     func liveFocusScopesAnalysisToActiveContext() throws {
         let packet = AIExportBuilder.build(from: sampleDocument(), options: AIExportOptions(mode: .liveFocus))

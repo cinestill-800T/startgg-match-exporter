@@ -22,6 +22,7 @@ struct WatchlistExportDocument: Codable, Hashable, Sendable {
     var source: ExportSource
     var event: EventSummary
     var summary: WatchlistSummary
+    var exclusionQueries: [String]
     var queries: [WatchlistQueryResult]
 }
 
@@ -90,12 +91,12 @@ enum WatchlistScopeBuilder {
             }
     }
 
-    static func preview(for watchlistText: String, document: ExportDocument?) -> WatchlistPreview {
+    static func preview(for watchlistText: String, excludedText: String = "", document: ExportDocument?) -> WatchlistPreview {
         let queries = parseQueries(watchlistText)
         guard let document, !queries.isEmpty else {
             return WatchlistPreview(queryCount: queries.count, matchedQueryCount: 0, matchedEntrantCount: 0, relatedSetCount: 0)
         }
-        let export = build(from: document, watchlistText: watchlistText)
+        let export = build(from: document, watchlistText: watchlistText, excludedText: excludedText)
         return WatchlistPreview(
             queryCount: export.summary.queryCount,
             matchedQueryCount: export.summary.matchedQueryCount,
@@ -104,9 +105,11 @@ enum WatchlistScopeBuilder {
         )
     }
 
-    static func build(from document: ExportDocument, watchlistText: String) -> WatchlistExportDocument {
+    static func build(from document: ExportDocument, watchlistText: String, excludedText: String = "") -> WatchlistExportDocument {
         let queries = parseQueries(watchlistText)
+        let exclusionQueries = parseQueries(excludedText)
         let allEntrants = entrants(from: document)
+            .filter { !isExcluded($0, by: exclusionQueries) }
         var standingsByEntrantId: [FlexibleID: Int] = [:]
         for standing in document.standings {
             if let entrantId = standing.entrant?.id {
@@ -152,6 +155,7 @@ enum WatchlistScopeBuilder {
                 completedRelatedSetCount: uniqueSetContexts.filter { StartGGSetState.isCompleted($0.set.state) }.count,
                 pendingRelatedSetCount: uniqueSetContexts.filter { !StartGGSetState.isCompleted($0.set.state) }.count
             ),
+            exclusionQueries: exclusionQueries,
             queries: results
         )
     }
@@ -166,12 +170,19 @@ enum WatchlistScopeBuilder {
         var lines: [String] = []
         lines.append("# \(document.event.name ?? "start.gg Event") 選手ウォッチレポート")
         lines.append("")
+        appendTableOfContents(for: document, to: &lines)
+        lines.append("")
+        appendRecentCompletedMatchSummary(for: document, to: &lines)
+        lines.append("")
         lines.append("## 概要")
         lines.append("")
         lines.append("- 作成日時: \(document.generatedAt)")
         lines.append("- 対象URL: \(document.source.inputURL)")
         lines.append("- 取得モード: \(document.source.apiMode)")
         lines.append("- 検索一致: \(document.summary.matchedQueryCount)/\(document.summary.queryCount) 件")
+        if !document.exclusionQueries.isEmpty {
+            lines.append("- 除外ワード: \(document.exclusionQueries.joined(separator: ", "))")
+        }
         lines.append("- 対象選手: \(document.summary.matchedEntrantCount) 名")
         lines.append("- 関連試合: \(document.summary.relatedSetCount) 件（終了 \(document.summary.completedRelatedSetCount) / 未完了 \(document.summary.pendingRelatedSetCount)）")
         lines.append("")
@@ -189,6 +200,8 @@ enum WatchlistScopeBuilder {
                 let name = report.entrant.name ?? report.entrant.id.value
                 lines.append("")
                 lines.append("### \(name)")
+                lines.append("")
+                lines.append(statusBadgesLine(for: report))
                 lines.append("")
                 lines.append("- 一致理由: \(localizedMatchReason(report.matchReason))（`\(report.matchedValue)`）")
                 if let seed = report.entrant.initialSeedNum {
@@ -230,6 +243,204 @@ enum WatchlistScopeBuilder {
         }
 
         return lines.joined(separator: "\n")
+    }
+
+    private static func appendRecentCompletedMatchSummary(for document: WatchlistExportDocument, to lines: inout [String]) {
+        let recentMatches = recentCompletedMatchSummaries(from: document)
+
+        lines.append("## ウォッチ対象者の直近完了試合")
+        lines.append("")
+
+        guard !recentMatches.isEmpty else {
+            lines.append("ウォッチ対象者に関連する完了済み試合はまだありません。")
+            return
+        }
+
+        lines.append("- ウォッチ対象者に関連する完了済み試合の直近10件です。")
+        lines.append("")
+        lines.append("| 対象者 | 勝敗 | 相手 | スコア | 文脈 |")
+        lines.append("|---|---|---|---|---|")
+
+        for match in recentMatches.prefix(10) {
+            let targetText = markdownCell(match.watchedEntrants.map(\.name).joined(separator: " / "))
+            let resultText = markdownCell(match.resultText)
+            let opponentText = markdownCell(match.opponentText)
+            let scoreText = markdownCell(match.scoreText)
+            let contextText = markdownCell(match.contextText)
+            lines.append("| \(targetText) | \(resultText) | \(opponentText) | \(scoreText) | \(contextText) |")
+        }
+    }
+
+    private static func appendTableOfContents(for document: WatchlistExportDocument, to lines: inout [String]) {
+        lines.append("## 目次")
+        lines.append("")
+        lines.append("- [概要](#概要)")
+
+        for query in document.queries {
+            let queryHeading = "検索: \(query.query)"
+            lines.append("- [\(markdownLinkText(queryHeading))](#\(markdownHeadingAnchor(queryHeading)))")
+            for report in query.matches {
+                let name = report.entrant.name ?? report.entrant.id.value
+                lines.append("  - [\(markdownLinkText(name))](#\(markdownHeadingAnchor(name)))")
+            }
+        }
+    }
+
+    private static func markdownLinkText(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "[", with: "\\[")
+            .replacingOccurrences(of: "]", with: "\\]")
+    }
+
+    private static func markdownHeadingAnchor(_ value: String) -> String {
+        normalize(value)
+            .unicodeScalars
+            .filter { scalar in
+                CharacterSet.alphanumerics.contains(scalar) ||
+                    CharacterSet.letters.contains(scalar) ||
+                    CharacterSet.decimalDigits.contains(scalar) ||
+                    scalar == " " ||
+                    scalar == "-"
+            }
+            .map(String.init)
+            .joined()
+            .replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: "--+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+
+    private static func statusBadgesLine(for report: WatchlistEntrantReport) -> String {
+        let survival = survivalStatus(for: report)
+        let bracket = bracketSide(for: report)
+        return [
+            markdownBadge(label: "状態", message: survival.label, color: survival.color),
+            markdownBadge(label: "ブラケット", message: bracket.label, color: bracket.color)
+        ].joined(separator: " ")
+    }
+
+    private static func survivalStatus(for report: WatchlistEntrantReport) -> BadgeValue {
+        if let latestUnfinished = latestRelevantSetContext(for: report, preferUnfinished: true),
+           !StartGGSetState.isCompleted(latestUnfinished.set.state) {
+            return BadgeValue(label: "生存中", color: "brightgreen")
+        }
+
+        guard let latestCompleted = latestRelevantSetContext(for: report, preferUnfinished: false),
+              StartGGSetState.isCompleted(latestCompleted.set.state) else {
+            return BadgeValue(label: "不明", color: "lightgrey")
+        }
+
+        switch latestCompleted.result {
+        case "loss":
+            return BadgeValue(label: "敗退済み", color: "red")
+        case "win":
+            return BadgeValue(label: "生存中", color: "brightgreen")
+        default:
+            return BadgeValue(label: "不明", color: "lightgrey")
+        }
+    }
+
+    private static func bracketSide(for report: WatchlistEntrantReport) -> BadgeValue {
+        guard let preferredSet = latestRelevantSetContext(for: report, preferUnfinished: true) else {
+            return BadgeValue(label: "不明", color: "lightgrey")
+        }
+
+        guard let roundText = preferredSet.set.fullRoundText?.lowercased() else {
+            return BadgeValue(label: "不明", color: "lightgrey")
+        }
+
+        if roundText.contains("winners") {
+            return BadgeValue(label: "Winners", color: "blue")
+        }
+        if roundText.contains("losers") {
+            return BadgeValue(label: "Losers", color: "orange")
+        }
+        return BadgeValue(label: "不明", color: "lightgrey")
+    }
+
+    private static func latestRelevantSetContext(for report: WatchlistEntrantReport, preferUnfinished: Bool) -> WatchlistSetContext? {
+        let rankedSets = report.sets.sorted(by: compareSetContextsForRecency)
+        let newestFirst = rankedSets.reversed()
+
+        if preferUnfinished, let latestUnfinished = newestFirst.first(where: { !StartGGSetState.isCompleted($0.set.state) }) {
+            return latestUnfinished
+        }
+
+        return newestFirst.first(where: { StartGGSetState.isCompleted($0.set.state) })
+    }
+
+    private static func compareSetContextsForRecency(_ lhs: WatchlistSetContext, _ rhs: WatchlistSetContext) -> Bool {
+        if lhs.phaseIndex == rhs.phaseIndex {
+            return setTimestamp(lhs.set) < setTimestamp(rhs.set)
+        }
+        return lhs.phaseIndex < rhs.phaseIndex
+    }
+
+    private static func setTimestamp(_ set: ExportSet) -> Int {
+        set.updatedAt ?? set.completedAt ?? set.startedAt ?? 0
+    }
+
+    private static func markdownBadge(label: String, message: String, color: String) -> String {
+        "![\(label): \(message)](\(shieldsBadgeURL(label: label, message: message, color: color)))"
+    }
+
+    private static func shieldsBadgeURL(label: String, message: String, color: String) -> String {
+        "https://img.shields.io/badge/\(percentEncodedBadgeComponent(label))-\(percentEncodedBadgeComponent(message))-\(color)"
+    }
+
+    private static func percentEncodedBadgeComponent(_ value: String) -> String {
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+    }
+
+    private static func recentCompletedMatchSummaries(from document: WatchlistExportDocument) -> [RecentCompletedMatchSummary] {
+        var summaries: [FlexibleID: RecentCompletedMatchSummary] = [:]
+
+        for query in document.queries {
+            for report in query.matches {
+                for context in report.sets where StartGGSetState.isCompleted(context.set.state) {
+                    let watchedName = entrantName(from: context.watchedEntrantId, in: context.set)
+                    let watchedResult = localizedResult(context.result)
+                    let opponentNames = context.set.slots
+                        .compactMap { slot -> String? in
+                            guard let entrant = slot.entrant, entrant.id != context.watchedEntrantId else {
+                                return nil
+                            }
+                            return entrant.name ?? entrant.id.value
+                        }
+                    let summary = summaries[context.set.id] ?? RecentCompletedMatchSummary(
+                        setId: context.set.id,
+                        sortTimestamp: context.set.completedAt ?? context.set.updatedAt ?? context.set.startedAt ?? 0,
+                        phaseIndex: context.phaseIndex,
+                        round: context.set.round ?? 0,
+                        phaseName: context.phaseName,
+                        phaseGroup: context.phaseGroup,
+                        watchedEntrants: [],
+                        opponentNames: [],
+                        scoreText: context.set.displayScore ?? scoreText(watched: context.watchedScore, opponent: context.opponentScore)
+                    )
+
+                    summaries[context.set.id] = summary.merging(
+                        watchedEntrant: RecentCompletedMatchParticipant(name: watchedName, result: watchedResult),
+                        opponentNames: opponentNames,
+                        context: context
+                    )
+                }
+            }
+        }
+
+        return summaries.values.sorted { lhs, rhs in
+            if lhs.sortTimestamp == rhs.sortTimestamp {
+                if lhs.phaseIndex == rhs.phaseIndex {
+                    if lhs.round == rhs.round {
+                        return lhs.setId.value > rhs.setId.value
+                    }
+                    return lhs.round > rhs.round
+                }
+                return lhs.phaseIndex > rhs.phaseIndex
+            }
+            return lhs.sortTimestamp > rhs.sortTimestamp
+        }
     }
 
     static func normalize(_ value: String) -> String {
@@ -291,6 +502,12 @@ enum WatchlistScopeBuilder {
                 }
                 return lhs.score > rhs.score
             }
+    }
+
+    private static func isExcluded(_ entrant: Entrant, by exclusionQueries: [String]) -> Bool {
+        exclusionQueries.contains { query in
+            bestMatch(for: query, entrant: entrant) != nil
+        }
     }
 
     private static func bestMatch(for query: String, entrant: Entrant) -> EntrantMatch? {
@@ -453,16 +670,19 @@ enum WatchlistScopeBuilder {
     }
 
     private static func appendMatchTable(_ contexts: [WatchlistSetContext], to lines: inout [String]) {
-        lines.append("| 状況 | 場所 | ラウンド | 対戦カード | 勝敗 |")
-        lines.append("|---|---|---|---|---|")
+        lines.append("| 状況 | 場所 | ラウンド | 選手 | スコア | 相手 | 勝敗 |")
+        lines.append("|---|---|---|---|---|---|---|")
 
         for context in contexts {
             let state = markdownCell(localizedStateLabel(context.set.stateLabel))
             let location = markdownCell(locationText(for: context))
             let round = markdownCell(context.set.fullRoundText ?? context.set.identifier ?? "")
-            let matchup = markdownCell(matchupText(for: context))
+            let matchup = matchupColumns(for: context)
+            let player = markdownCell(matchup.player)
+            let score = markdownCell(matchup.score)
+            let opponent = markdownCell(matchup.opponent)
             let result = markdownCell(localizedResult(context.result))
-            lines.append("| \(state) | \(location) | \(round) | \(matchup) | \(result) |")
+            lines.append("| \(state) | \(location) | \(round) | \(player) | \(score) | \(opponent) | \(result) |")
         }
     }
 
@@ -518,43 +738,39 @@ enum WatchlistScopeBuilder {
     }
 
     private static func scoreText(watched: Double?, opponent: Double?) -> String {
-        guard watched != nil || opponent != nil else {
-            return ""
+        guard let watched, watched >= 0, let opponent, opponent >= 0 else {
+            return "未記録"
         }
-        return "\(formatScore(watched))-\(formatScore(opponent))"
+        return "\(formatScore(watched)) - \(formatScore(opponent))"
     }
 
-    private static func formatScore(_ value: Double?) -> String {
-        guard let value else {
-            return ""
-        }
+    private static func formatScore(_ value: Double) -> String {
         if value.rounded() == value {
             return String(Int(value))
         }
         return String(value)
     }
 
-    private static func matchupText(for context: WatchlistSetContext) -> String {
+    private static func matchupColumns(for context: WatchlistSetContext) -> MatchupColumns {
         let watchedName = entrantName(from: context.watchedEntrantId, in: context.set)
-        let opponents = context.opponents.map { $0.name ?? $0.id.value }
+        let opponentSlots = context.set.slots.filter { $0.entrant?.id != context.watchedEntrantId }
+        let opponents = opponentSlots.map { $0.entrant?.name ?? $0.entrant?.id.value ?? "未定" }
+        let opponentText = opponents.isEmpty ? "未定" : opponents.joined(separator: ", ")
+        let score = StartGGSetState.isCompleted(context.set.state)
+            ? scoreText(watched: context.watchedScore, opponent: context.opponentScore)
+            : ""
 
-        guard !opponents.isEmpty else {
-            return watchedName
-        }
-
-        if StartGGSetState.isCompleted(context.set.state),
-           let opponent = opponents.first,
-           context.opponents.count == 1,
-           context.watchedScore != nil || context.opponentScore != nil {
-            return "\(watchedName) \(formatScore(context.watchedScore)) - \(formatScore(context.opponentScore)) \(opponent)"
-        }
-
-        return "\(watchedName) vs \(opponents.joined(separator: ", "))"
+        return MatchupColumns(player: watchedName, score: score, opponent: opponentText)
     }
 
     private static func entrantName(from entrantId: FlexibleID, in set: ExportSet) -> String {
         set.slots.first { $0.entrant?.id == entrantId }?.entrant?.name ?? entrantId.value
     }
+}
+
+private struct BadgeValue {
+    var label: String
+    var color: String
 }
 
 private struct EntrantMatch: Hashable {
@@ -567,4 +783,65 @@ private struct EntrantMatch: Hashable {
 private struct PhaseContext {
     var index: Int
     var phase: PhaseExport
+}
+
+private struct MatchupColumns {
+    var player: String
+    var score: String
+    var opponent: String
+}
+
+private struct RecentCompletedMatchSummary {
+    var setId: FlexibleID
+    var sortTimestamp: Int
+    var phaseIndex: Int
+    var round: Int
+    var phaseName: String?
+    var phaseGroup: PhaseGroupRef?
+    var watchedEntrants: [RecentCompletedMatchParticipant]
+    var opponentNames: [String]
+    var scoreText: String
+
+    var resultText: String {
+        watchedEntrants.isEmpty
+            ? "不明"
+            : watchedEntrants.map { "\($0.name)（\($0.result)）" }.joined(separator: " / ")
+    }
+
+    var contextText: String {
+        let phase = phaseName ?? setId.value
+        let group = phaseGroup?.displayIdentifier.map { " / \($0)" } ?? ""
+        let roundText = round > 0 ? " / R\(round)" : ""
+        return "\(phase)\(group)\(roundText)"
+    }
+
+    var opponentText: String {
+        let unique = Array(Set(opponentNames)).sorted()
+        let watchedNames = Set(watchedEntrants.map(\.name))
+        if unique.isEmpty || unique.allSatisfy(watchedNames.contains) {
+            return "対象者同士"
+        }
+        return unique.joined(separator: ", ")
+    }
+
+    func merging(watchedEntrant: RecentCompletedMatchParticipant, opponentNames: [String], context: WatchlistSetContext) -> RecentCompletedMatchSummary {
+        var merged = self
+        if !merged.watchedEntrants.contains(watchedEntrant) {
+            merged.watchedEntrants.append(watchedEntrant)
+        }
+        merged.watchedEntrants.sort { lhs, rhs in
+            if lhs.name == rhs.name {
+                return lhs.result < rhs.result
+            }
+            return lhs.name < rhs.name
+        }
+        merged.opponentNames.append(contentsOf: opponentNames)
+        merged.sortTimestamp = max(merged.sortTimestamp, context.set.completedAt ?? context.set.updatedAt ?? context.set.startedAt ?? 0)
+        return merged
+    }
+}
+
+private struct RecentCompletedMatchParticipant: Hashable {
+    var name: String
+    var result: String
 }

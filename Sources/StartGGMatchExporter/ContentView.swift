@@ -256,28 +256,22 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 10) {
             panelTitle("Watchlist")
             HStack(alignment: .top, spacing: 14) {
-                ZStack(alignment: .topLeading) {
-                    TextEditor(text: $viewModel.watchlistText)
-                        .font(.system(.body, design: .monospaced))
-                        .scrollContentBackground(.hidden)
-                        .background(Color(nsColor: .textBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
-                        )
-                        .help("Paste one player name per line. Matching uses entrant names, gamer tags, and common prefix forms.")
+                VStack(alignment: .leading, spacing: 10) {
+                    watchlistTextEditor(
+                        title: "検索ワード",
+                        text: $viewModel.watchlistText,
+                        placeholder: "Tokido\nMenaRD\nKakeru",
+                        help: "Paste one player name per line. Matching uses entrant names, gamer tags, and common prefix forms."
+                    )
 
-                    if viewModel.watchlistText.isEmpty {
-                        Text("Tokido\nMenaRD\nKakeru")
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(.secondary.opacity(0.65))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 8)
-                            .allowsHitTesting(false)
-                    }
+                    watchlistTextEditor(
+                        title: "除外ワード",
+                        text: $viewModel.excludedWatchlistText,
+                        placeholder: "Team Prefix\n不要な選手名",
+                        help: "Entries matching these words are removed from Watchlist matches. Use one word per line or comma-separated values."
+                    )
                 }
-                .frame(minHeight: 116)
+                .frame(minHeight: 220)
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text(viewModel.watchlistPreview.summaryText)
@@ -304,6 +298,42 @@ struct ContentView: View {
                 }
                 .frame(width: 245, alignment: .topLeading)
             }
+        }
+    }
+
+    private func watchlistTextEditor(
+        title: String,
+        text: Binding<String>,
+        placeholder: String,
+        help: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: text)
+                    .font(.system(.body, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                    )
+                    .help(help)
+
+                if text.wrappedValue.isEmpty {
+                    Text(placeholder)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(.secondary.opacity(0.65))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 8)
+                        .allowsHitTesting(false)
+                }
+            }
+            .frame(minHeight: 96)
         }
     }
 

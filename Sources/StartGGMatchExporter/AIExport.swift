@@ -79,15 +79,18 @@ enum AIExportMode: String, CaseIterable, Codable, Hashable, Identifiable, Sendab
 struct AIExportOptions: Codable, Hashable, Sendable {
     var mode: AIExportMode
     var watchlistText: String
+    var excludedWatchlistText: String
     var recentCompletedMatchLimit: Int
 
     init(
         mode: AIExportMode = .full,
         watchlistText: String = "",
+        excludedWatchlistText: String = "",
         recentCompletedMatchLimit: Int? = nil
     ) {
         self.mode = mode
         self.watchlistText = watchlistText
+        self.excludedWatchlistText = excludedWatchlistText
         self.recentCompletedMatchLimit = recentCompletedMatchLimit ?? mode.defaultRecentCompletedMatchLimit
     }
 }
@@ -734,7 +737,7 @@ enum AIExportBuilder {
         guard !trimmed.isEmpty else {
             return nil
         }
-        return WatchlistScopeBuilder.build(from: document, watchlistText: trimmed)
+        return WatchlistScopeBuilder.build(from: document, watchlistText: trimmed, excludedText: options.excludedWatchlistText)
     }
 
     private static func filteredMatches(

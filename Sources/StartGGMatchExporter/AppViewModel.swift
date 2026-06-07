@@ -25,6 +25,11 @@ final class AppViewModel: ObservableObject {
             UserDefaults.standard.set(watchlistText, forKey: Self.lastWatchlistTextDefaultsKey)
         }
     }
+    @Published var excludedWatchlistText = "" {
+        didSet {
+            UserDefaults.standard.set(excludedWatchlistText, forKey: Self.lastExcludedWatchlistTextDefaultsKey)
+        }
+    }
     @Published var aiExportMode: AIExportMode = .full {
         didSet {
             UserDefaults.standard.set(aiExportMode.rawValue, forKey: Self.aiExportModeDefaultsKey)
@@ -34,12 +39,14 @@ final class AppViewModel: ObservableObject {
     private var currentTask: Task<Void, Never>?
     private static let lastEventURLDefaultsKey = "lastEventURL"
     private static let lastWatchlistTextDefaultsKey = "lastWatchlistText"
+    private static let lastExcludedWatchlistTextDefaultsKey = "lastExcludedWatchlistText"
     private static let aiExportModeDefaultsKey = "aiExportMode"
 
     init() {
         token = (try? KeychainTokenStore.load()) ?? ""
         eventURL = UserDefaults.standard.string(forKey: Self.lastEventURLDefaultsKey) ?? ""
         watchlistText = UserDefaults.standard.string(forKey: Self.lastWatchlistTextDefaultsKey) ?? ""
+        excludedWatchlistText = UserDefaults.standard.string(forKey: Self.lastExcludedWatchlistTextDefaultsKey) ?? ""
         if let rawMode = UserDefaults.standard.string(forKey: Self.aiExportModeDefaultsKey),
            let mode = AIExportMode(rawValue: rawMode) {
             aiExportMode = mode
@@ -60,7 +67,7 @@ final class AppViewModel: ObservableObject {
     }
 
     var watchlistPreview: WatchlistPreview {
-        WatchlistScopeBuilder.preview(for: watchlistText, document: lastDocument)
+        WatchlistScopeBuilder.preview(for: watchlistText, excludedText: excludedWatchlistText, document: lastDocument)
     }
 
     var canSaveWatchlistScope: Bool {
@@ -180,7 +187,7 @@ final class AppViewModel: ObservableObject {
                     self.progressMessage = "Fetched \(document.summary.setCount) sets."
                     self.appendLog(didSaveCache ? "Saved cache." : "Cache save skipped. Export data is available in this session.")
                     if !self.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        let preview = WatchlistScopeBuilder.preview(for: self.watchlistText, document: document)
+                        let preview = WatchlistScopeBuilder.preview(for: self.watchlistText, excludedText: self.excludedWatchlistText, document: document)
                         self.appendLog("Watchlist: \(preview.summaryText)")
                     }
                 }
@@ -245,7 +252,7 @@ final class AppViewModel: ObservableObject {
                     isDirectory: true
                 )
             )
-            let options = AIExportOptions(mode: aiExportMode, watchlistText: watchlistText)
+            let options = AIExportOptions(mode: aiExportMode, watchlistText: watchlistText, excludedWatchlistText: excludedWatchlistText)
             let files = try AIExportBuilder.writePacket(document: lastDocument, to: folderURL, options: options)
             lastOutputURL = folderURL
             appendLog("Saved analysis pack.")
@@ -333,7 +340,7 @@ final class AppViewModel: ObservableObject {
         guard let lastDocument, !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
         }
-        return WatchlistScopeBuilder.build(from: lastDocument, watchlistText: watchlistText)
+        return WatchlistScopeBuilder.build(from: lastDocument, watchlistText: watchlistText, excludedText: excludedWatchlistText)
     }
 
     private func cachedDocument(for inputURL: String, mode: StartGGAPIMode) -> ExportDocument? {
