@@ -594,10 +594,10 @@ enum WatchlistScopeBuilder {
             } else if compactCandidate == compactQuery {
                 score = 98
                 reason = "compact exact"
-            } else if normalizedQuery.count > 3, normalizedCandidate.contains(normalizedQuery) {
+            } else if normalizedCandidate.contains(normalizedQuery) {
                 score = 86
                 reason = "contains"
-            } else if compactQuery.count > 3, compactCandidate.contains(compactQuery) {
+            } else if compactCandidate.contains(compactQuery) {
                 score = 84
                 reason = "compact contains"
             } else {

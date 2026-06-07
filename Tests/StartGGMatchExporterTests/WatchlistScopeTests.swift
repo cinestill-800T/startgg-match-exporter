@@ -90,6 +90,30 @@ struct WatchlistScopeTests {
         #expect(match?.matchedValue == "DFM")
     }
 
+    @Test("Matches short partial queries")
+    func matchesShortPartialQueries() {
+        let document = shortPrefixDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "G8S")
+
+        let match = scope.queries.first { $0.query == "G8S" }?.matches.first
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(match?.entrant.name == "G8S/PWS | Alpha")
+        #expect(match?.matchReason == "contains")
+    }
+
+    @Test("Matches compact-only short queries")
+    func matchesCompactOnlyShortQueries() {
+        var document = shortPrefixDocument()
+        document.entrants[0].name = "G-8-S / PWS | Alpha"
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "G8S")
+        let match = scope.queries.first { $0.query == "G8S" }?.matches.first
+
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(match?.entrant.name == "G-8-S / PWS | Alpha")
+        #expect(match?.matchReason == "compact contains")
+    }
+
     @Test("Excludes watchlist matches by excluded words")
     func excludesWatchlistMatchesByExcludedWords() {
         let document = sampleDocument()
@@ -642,6 +666,45 @@ struct WatchlistScopeTests {
                     sets: [eliminated]
                 )
             ]
+        )
+    }
+
+    private func shortPrefixDocument() -> ExportDocument {
+        let g8s = entrant(id: "1", name: "G8S/PWS | Alpha", tag: "Alpha", seed: 1)
+
+        let event = EventSummary(
+            id: FlexibleID("e-short-prefix"),
+            name: "Street Fighter 6",
+            slug: "tournament/test/event/street-fighter-6",
+            numEntrants: 1,
+            type: 1,
+            videogame: nil,
+            tournament: TournamentSummary(id: FlexibleID("t-short-prefix"), name: "Test", slug: "tournament/test", timezone: "UTC"),
+            phases: []
+        )
+
+        return ExportDocument(
+            schemaVersion: 1,
+            fetchedAt: "2026-05-23T00:00:00Z",
+            source: ExportSource(
+                inputURL: "https://www.start.gg/tournament/test/event/street-fighter-6",
+                eventSlug: "tournament/test/event/street-fighter-6",
+                apiEndpoint: "https://api.start.gg/gql/alpha",
+                apiMode: StartGGAPIMode.authenticatedFast.rawValue
+            ),
+            summary: ExportSummary(
+                phaseCount: 0,
+                entrantCount: 1,
+                standingCount: 0,
+                setCount: 0,
+                completedSetCount: 0,
+                pendingSetCount: 0,
+                startedSetCount: 0
+            ),
+            event: event,
+            entrants: [g8s],
+            standings: [],
+            phases: []
         )
     }
 
