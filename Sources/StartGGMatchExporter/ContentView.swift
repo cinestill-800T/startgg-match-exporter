@@ -9,7 +9,7 @@ struct ContentView: View {
             Divider()
             mainPanel
         }
-        .frame(minWidth: 1080, minHeight: 720)
+        .frame(width: 1180, height: 760)
         .background(Color(nsColor: .windowBackgroundColor))
         .task {
             viewModel.startBackgroundSync()
@@ -17,36 +17,47 @@ struct ContentView: View {
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 18) {
             header
+            modePanel
             sourcePanel
-            watchlistPanel
+            manualFetchPanel
             Spacer(minLength: 16)
-            actionPanel
+            configPanel
         }
-        .padding(24)
-        .frame(width: 430)
+        .padding(22)
+        .frame(width: 360)
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
     private var mainPanel: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            matchProgressPanel
-            backgroundSyncPanel
-            statusPanel
+        HStack(alignment: .top, spacing: 18) {
+            VStack(alignment: .leading, spacing: 16) {
+                watchlistPanel
+                outputPanel
+            }
+            .frame(width: 430, alignment: .topLeading)
+
+            VStack(alignment: .leading, spacing: 16) {
+                matchProgressPanel
+                backgroundSyncPanel
+                statusPanel
+            }
+            .frame(width: 325, alignment: .topLeading)
         }
-        .padding(24)
+        .padding(22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("StartGG Match Exporter")
-                .font(.system(size: 26, weight: .semibold))
+                .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(.primary)
             Text("Watchlist-focused tournament reports for macOS.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -75,34 +86,28 @@ struct ContentView: View {
     }
 
     private var sourcePanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             panelTitle("Source")
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Event URL")
-                        .font(.subheadline.weight(.medium))
-                    Spacer()
-                    statusPill(
-                        viewModel.eventURLStatusText,
-                        color: viewModel.hasValidEventURL ? .green : (viewModel.eventURL.isEmpty ? .secondary : .red)
-                    )
-                }
+                Text("Event URL")
+                    .font(.subheadline.weight(.medium))
                 TextField("https://www.start.gg/tournament/.../event/street-fighter-6", text: $viewModel.eventURL)
                     .textFieldStyle(.roundedBorder)
                     .help("Paste a start.gg event URL or bracket URL. The app will normalize it to the event slug.")
+                statusPill(
+                    viewModel.eventURLStatusText,
+                    color: viewModel.hasValidEventURL ? .green : (viewModel.eventURL.isEmpty ? .secondary : .red)
+                )
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("API Token")
-                        .font(.subheadline.weight(.medium))
-                    Spacer()
-                    statusPill(viewModel.apiTokenStatusText, color: viewModel.hasAPIToken ? .green : .blue)
-                }
+                Text("API Token")
+                    .font(.subheadline.weight(.medium))
                 SecureField("Paste token for authenticated mode", text: $viewModel.token)
                     .textFieldStyle(.roundedBorder)
                     .help("Leave this blank for Public Safe Mode. Paste a start.gg API token to use the official API.")
+                statusPill(viewModel.apiTokenStatusText, color: viewModel.hasAPIToken ? .green : .blue)
             }
 
             HStack(spacing: 8) {
@@ -121,24 +126,90 @@ struct ContentView: View {
                 .help("Remove the saved token and return to Public Safe Mode.")
             }
             .controlSize(.small)
+        }
+    }
+
+    private var configPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            panelTitle("Settings")
+
+            Button {
+                viewModel.revealConfig()
+            } label: {
+                Label("Config", systemImage: "slider.horizontal.3")
+                    .frame(maxWidth: .infinity)
+            }
+            .controlSize(.regular)
+            .help("Open the generated config.json. Use it to tune request pacing, page sizes, concurrency, and retry waits.")
+        }
+    }
+
+    private var manualFetchPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            panelTitle("Manual Fetch")
 
             HStack(spacing: 8) {
-                Spacer()
+                Button {
+                    viewModel.fetch()
+                } label: {
+                    Label("Fetch", systemImage: "arrow.down.doc")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.return, modifiers: [.command])
+                .disabled(!viewModel.canStart)
+                .help("Fetch entrants, standings, phases, and sets. Complete local cache may be used as a base for completed phases.")
 
                 Button {
-                    viewModel.revealConfig()
+                    viewModel.fetch(forceRefresh: true)
                 } label: {
-                    Label("Config", systemImage: "slider.horizontal.3")
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                        .frame(maxWidth: .infinity)
                 }
-                .controlSize(.small)
-                .help("Open the generated config.json. Use it to tune request pacing, page sizes, concurrency, and retry waits.")
+                .disabled(!viewModel.canStart)
+                .help("Ignore local cache and fetch fresh data from start.gg.")
+            }
+
+            if viewModel.isWorking {
+                Button(role: .cancel) {
+                    viewModel.cancel()
+                } label: {
+                    Label("Cancel", systemImage: "stop.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .help("Cancel the current export. Only previously completed exports are kept in the local cache.")
             }
         }
     }
 
-    private var actionPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            panelTitle("Optional Output")
+    private var outputPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            panelTitle("Output")
+
+            HStack(spacing: 10) {
+                Button {
+                    viewModel.saveWatchlistMarkdown()
+                } label: {
+                    Label("Save Markdown Report", systemImage: "doc.plaintext")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!viewModel.canSaveWatchlistScope)
+                .help("Save a compact watchlist report as Markdown.")
+
+                Button {
+                    viewModel.saveAnalysisPacket()
+                } label: {
+                    Label("Save JSON Pack", systemImage: "curlybraces.square")
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(!viewModel.canSaveAnalysisPacket)
+                .help("Save analysis.json, matches.jsonl, summary.md, and optional raw.json.")
+            }
+
+            Divider()
+
+            panelTitle("JSON Pack Mode")
             Picker("Mode", selection: $viewModel.aiExportMode) {
                 ForEach(AIExportMode.allCases) { mode in
                     Text(mode.title)
@@ -151,7 +222,7 @@ struct ContentView: View {
             .help(viewModel.aiExportModeHelpText)
 
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "questionmark.circle")
+                Image(systemName: "info.circle")
                     .foregroundStyle(.secondary)
                     .help(viewModel.aiExportModeHelpText)
                 Text(viewModel.aiExportMode.shortDescription)
@@ -171,52 +242,6 @@ struct ContentView: View {
                     .help(AIExportMode.watchlistFocus.helpText)
                     .transition(.opacity)
             }
-
-            Divider()
-                .padding(.vertical, 2)
-
-            VStack(spacing: 8) {
-                Button {
-                    viewModel.fetch()
-                } label: {
-                    Label("Fetch", systemImage: "arrow.down.doc")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .keyboardShortcut(.return, modifiers: [.command])
-                .disabled(!viewModel.canStart)
-                .help("Fetch entrants, standings, phases, and sets. Complete local cache may be used as a base for completed phases.")
-
-                Button {
-                    viewModel.fetch(forceRefresh: true)
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                        .frame(maxWidth: .infinity)
-                }
-                .controlSize(.large)
-                .disabled(!viewModel.canStart)
-                .help("Ignore local cache and fetch fresh data from start.gg.")
-
-                Button {
-                    viewModel.saveAnalysisPacket()
-                } label: {
-                    Label("Save Analysis Pack", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                }
-                .controlSize(.large)
-                .disabled(!viewModel.canSaveAnalysisPacket)
-                .help(viewModel.aiExportModeHelpText)
-
-                if viewModel.isWorking {
-                    Button(role: .cancel) {
-                        viewModel.cancel()
-                    } label: {
-                        Label("Cancel", systemImage: "stop.circle")
-                    }
-                    .help("Cancel the current export. Only previously completed exports are kept in the local cache.")
-                }
-            }
         }
         .animation(.easeOut(duration: 0.2), value: viewModel.aiExportMode)
     }
@@ -224,8 +249,7 @@ struct ContentView: View {
     private var matchProgressPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             panelTitle("Match Progress")
-            HStack(spacing: 12) {
-                metric("Entrants", value: viewModel.entrantCount)
+            VStack(spacing: 10) {
                 metric("Total Sets", value: viewModel.totalSetCount)
                 metric("Completed", value: viewModel.completedSetCount)
                 metric("Remaining", value: viewModel.pendingSetCount)
@@ -264,7 +288,7 @@ struct ContentView: View {
                 )
             }
 
-            Toggle("Auto-fetch on launch and periodic refresh", isOn: $viewModel.autoRefreshEnabled)
+            Toggle("Auto-fetch on launch and every 5 min", isOn: $viewModel.autoRefreshEnabled)
                 .toggleStyle(.switch)
                 .help("Keep the current event fresh while the app is open. Requests use the existing throttled queue.")
 
@@ -378,17 +402,6 @@ struct ContentView: View {
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .help("Summary updates from the latest fetched data and the pasted watchlist.")
-
-            Button {
-                viewModel.saveWatchlistMarkdown()
-            } label: {
-                Label("Save Markdown Report", systemImage: "doc.plaintext")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(!viewModel.canSaveWatchlistScope)
-            .help("Save a compact watchlist report as Markdown.")
         }
     }
 
@@ -446,7 +459,7 @@ struct ContentView: View {
                         .allowsHitTesting(false)
                 }
             }
-            .frame(minHeight: 96)
+            .frame(height: title == "Exclude" ? 76 : 138)
         }
     }
 
@@ -497,16 +510,18 @@ struct ContentView: View {
     }
 
     private func metric(_ label: String, value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            Spacer()
             Text(value.formatted())
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .font(.system(size: 24, weight: .semibold, design: .rounded))
                 .monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(Color(nsColor: .textBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .help("\(label): \(value.formatted())")

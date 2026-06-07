@@ -7,5 +7,6 @@ struct StartGGMatchExporterApp: App {
             ContentView()
         }
         .windowStyle(.titleBar)
+        .windowResizability(.contentSize)
     }
 }
