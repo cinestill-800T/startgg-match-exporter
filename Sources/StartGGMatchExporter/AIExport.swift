@@ -13,13 +13,13 @@ enum AIExportMode: String, CaseIterable, Codable, Hashable, Identifiable, Sendab
     var title: String {
         switch self {
         case .full:
-            return "Full（全件）"
+            return "Full"
         case .liveFocus:
-            return "Live Focus（進行中中心）"
+            return "Live Focus"
         case .compact:
-            return "Compact（軽量）"
+            return "Compact"
         case .watchlistFocus:
-            return "Watchlist Focus（指定選手）"
+            return "Watchlist Focus"
         }
     }
 
@@ -39,26 +39,26 @@ enum AIExportMode: String, CaseIterable, Codable, Hashable, Identifiable, Sendab
     var shortDescription: String {
         switch self {
         case .full:
-            return "全試合と raw.json を含む従来の完全出力です。検証や再解析向きですが、AIへ渡す容量は最大になります。"
+            return "Includes every match plus raw.json for complete review and later re-analysis."
         case .liveFocus:
-            return "未完了・進行中の試合と関係選手だけを残し、勝ち残り選手の直近結果だけ補足します。大会追跡の通常更新向きです。"
+            return "Keeps pending and active matches, related players, and recent results for ongoing event tracking."
         case .compact:
-            return "終了済み試合の詳細と無関係な選手一覧をAI用ファイルから外し、現在残っている試合を優先します。トークン節約向きです。"
+            return "Omits unrelated history and keeps the current bracket context small."
         case .watchlistFocus:
-            return "Watchlistに入力した選手と、その周辺の試合だけを出力します。特定選手の状況解説向きです。"
+            return "Focuses the saved files on the teams or players entered in the Watchlist."
         }
     }
 
     var helpText: String {
         switch self {
         case .full:
-            return "Full（全件）: raw.json と全件 matches.jsonl を含めます。情報の欠落は最小ですが、フォルダごとAIに渡すとトークン負担が大きくなります。"
+            return "Full: includes raw.json and the complete matches.jsonl. Use this when you want the most complete archive."
         case .liveFocus:
-            return "Live Focus（進行中中心）: raw.json は出力せず、analysis.json と matches.jsonl は未完了・進行中の試合、関係選手、現在アクティブな選手の直近終了試合に絞ります。数日かけて大会を追う通常運用に向いています。"
+            return "Live Focus: omits raw.json and scopes files to unfinished or active matches, related players, and recent completed sets for active entrants."
         case .compact:
-            return "Compact（軽量）: raw.json は出力せず、終了済み試合の詳細行、無関係な選手一覧、全体検索インデックスを除外します。analysis.json には現在残っている試合と関係選手の圧縮サマリだけ残します。"
+            return "Compact: omits raw.json, completed match detail rows, unrelated players, and the broad search index."
         case .watchlistFocus:
-            return "Watchlist Focus（指定選手）: Watchlist に入力した選手を中心に、未完了試合と直近の終了済み試合だけを出します。使う前に Watchlist 欄へ選手名を入力してください。"
+            return "Watchlist Focus: saves only the watchlist entrants, their unfinished matches, and their recent completed matches."
         }
     }
 
@@ -466,7 +466,7 @@ enum AIExportBuilder {
         lines.append("- Source: \(packet.metadata.source.inputURL)")
         lines.append("- Output mode: \(packet.metadata.exportMode)")
         lines.append("- Entrants: \(packet.entrants.count)")
-        lines.append("- Match rows in AI output: \(packet.matchIndex.byId.count)")
+        lines.append("- Match rows in output: \(packet.matchIndex.byId.count)")
         lines.append("- Source matches: \(packet.metadata.summary.setCount)")
         lines.append("- Completed matches: \(packet.metadata.summary.completedSetCount)")
         lines.append("- Pending matches: \(packet.metadata.summary.pendingSetCount)")
@@ -532,7 +532,7 @@ enum AIExportBuilder {
             AIExportManifestFile(path: "analysis.json", description: "Primary analysis packet with lookup indices, frontier, compressed history, players, phase groups, and routes.", records: nil),
             AIExportManifestFile(path: "matches.jsonl", description: "One normalized match per line for set-level drill-down. In lightweight modes this file is intentionally filtered.", records: matchRecordCount),
             AIExportManifestFile(path: "summary.md", description: "Human-readable overview for quick review.", records: nil),
-            AIExportManifestFile(path: "analysis-prompt.md", description: "Prompt guidance for an external AI assistant.", records: nil)
+            AIExportManifestFile(path: "analysis-prompt.md", description: "Optional guidance for structured review or follow-up analysis.", records: nil)
         ]
         if packet.metadata.exportMode == AIExportMode.full.title {
             files.append(AIExportManifestFile(path: "raw.json", description: "Original comprehensive export for fallback inspection.", records: nil))
@@ -552,7 +552,7 @@ enum AIExportBuilder {
             "Player nationality is not inferred by this app."
         ]
         if options.mode != .full {
-            notes.append("This lightweight export intentionally omits raw.json and scopes entrants, players, standings, routes, phase groups, and match details to the current AI output mode.")
+            notes.append("This lightweight export intentionally omits raw.json and scopes entrants, players, standings, routes, phase groups, and match details to the current output mode.")
         }
         if options.mode == .watchlistFocus {
             let matched = watchlistDocument?.summary.matchedEntrantCount ?? 0
@@ -592,7 +592,7 @@ enum AIExportBuilder {
         }
 
         return AIUsageGuide(
-            purpose: "Help an external AI answer arbitrary player-status and route questions without scanning unrelated completed matches first.",
+            purpose: "Answer player-status and route questions without scanning unrelated completed matches first.",
             targetPlayerWorkflow: workflow,
             filePriority: filePriority,
             caveats: [

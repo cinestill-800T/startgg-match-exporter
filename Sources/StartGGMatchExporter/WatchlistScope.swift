@@ -16,6 +16,19 @@ struct WatchlistPreview: Equatable {
     }
 }
 
+struct WatchlistOutputFilter: Codable, Hashable, Sendable {
+    var includeLiving: Bool = true
+    var includeEliminated: Bool = true
+    var includeWinners: Bool = true
+    var includeLosers: Bool = true
+
+    var isEnabled: Bool {
+        includeLiving || includeEliminated || includeWinners || includeLosers
+    }
+
+    static let allEnabled = WatchlistOutputFilter()
+}
+
 struct WatchlistExportDocument: Codable, Hashable, Sendable {
     var schemaVersion: Int
     var generatedAt: String
@@ -91,12 +104,17 @@ enum WatchlistScopeBuilder {
             }
     }
 
-    static func preview(for watchlistText: String, excludedText: String = "", document: ExportDocument?) -> WatchlistPreview {
+    static func preview(
+        for watchlistText: String,
+        excludedText: String = "",
+        document: ExportDocument?,
+        filter: WatchlistOutputFilter = .allEnabled
+    ) -> WatchlistPreview {
         let queries = parseQueries(watchlistText)
         guard let document, !queries.isEmpty else {
             return WatchlistPreview(queryCount: queries.count, matchedQueryCount: 0, matchedEntrantCount: 0, relatedSetCount: 0)
         }
-        let export = build(from: document, watchlistText: watchlistText, excludedText: excludedText)
+        let export = build(from: document, watchlistText: watchlistText, excludedText: excludedText, filter: filter)
         return WatchlistPreview(
             queryCount: export.summary.queryCount,
             matchedQueryCount: export.summary.matchedQueryCount,
@@ -105,7 +123,12 @@ enum WatchlistScopeBuilder {
         )
     }
 
-    static func build(from document: ExportDocument, watchlistText: String, excludedText: String = "") -> WatchlistExportDocument {
+    static func build(
+        from document: ExportDocument,
+        watchlistText: String,
+        excludedText: String = "",
+        filter: WatchlistOutputFilter = .allEnabled
+    ) -> WatchlistExportDocument {
         let queries = parseQueries(watchlistText)
         let exclusionQueries = parseQueries(excludedText)
         let allEntrants = entrants(from: document)
@@ -133,13 +156,21 @@ enum WatchlistScopeBuilder {
             return WatchlistQueryResult(query: query, normalizedQuery: normalize(query), matches: reports)
         }
 
-        let uniqueEntrantIds = Set(results.flatMap { $0.matches.map(\.entrant.id) })
+        let filteredResults = results.map { queryResult in
+            WatchlistQueryResult(
+                query: queryResult.query,
+                normalizedQuery: queryResult.normalizedQuery,
+                matches: queryResult.matches.filter { matchesFilter($0, using: filter) }
+            )
+        }
+
+        let uniqueEntrantIds = Set(filteredResults.flatMap { $0.matches.map(\.entrant.id) })
         let uniqueSets = Dictionary(
-            grouping: results.flatMap { $0.matches.flatMap(\.sets) },
+            grouping: filteredResults.flatMap { $0.matches.flatMap(\.sets) },
             by: { $0.set.id }
         )
         let uniqueSetContexts = uniqueSets.compactMap { $0.value.first }
-        let matchedQueryCount = results.filter { !$0.matches.isEmpty }.count
+        let matchedQueryCount = filteredResults.filter { !$0.matches.isEmpty }.count
 
         return WatchlistExportDocument(
             schemaVersion: 1,
@@ -156,7 +187,7 @@ enum WatchlistScopeBuilder {
                 pendingRelatedSetCount: uniqueSetContexts.filter { !StartGGSetState.isCompleted($0.set.state) }.count
             ),
             exclusionQueries: exclusionQueries,
-            queries: results
+            queries: filteredResults
         )
     }
 
@@ -317,6 +348,37 @@ enum WatchlistScopeBuilder {
             markdownBadge(label: "状態", message: survival.label, color: survival.color),
             markdownBadge(label: "ブラケット", message: bracket.label, color: bracket.color)
         ].joined(separator: " ")
+    }
+
+    private static func matchesFilter(_ report: WatchlistEntrantReport, using filter: WatchlistOutputFilter) -> Bool {
+        guard filter.isEnabled else {
+            return false
+        }
+
+        let survival = survivalStatus(for: report).label
+        let bracket = bracketSide(for: report).label
+
+        let survivalAllowed: Bool
+        switch (filter.includeLiving, filter.includeEliminated) {
+        case (false, false), (true, true):
+            survivalAllowed = true
+        case (true, false):
+            survivalAllowed = survival == "生存中"
+        case (false, true):
+            survivalAllowed = survival == "敗退済み"
+        }
+
+        let bracketAllowed: Bool
+        switch (filter.includeWinners, filter.includeLosers) {
+        case (false, false), (true, true):
+            bracketAllowed = true
+        case (true, false):
+            bracketAllowed = bracket == "Winners"
+        case (false, true):
+            bracketAllowed = bracket == "Losers"
+        }
+
+        return survivalAllowed && bracketAllowed
     }
 
     private static func survivalStatus(for report: WatchlistEntrantReport) -> BadgeValue {

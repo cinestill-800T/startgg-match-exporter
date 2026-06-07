@@ -33,6 +33,51 @@ struct WatchlistScopeTests {
         #expect(tokido?.pendingSetCount == 1)
     }
 
+    @Test("Filters watchlist output by status and bracket groups")
+    func filtersWatchlistOutputByStatusAndBracketGroups() {
+        let document = mixedBracketDocument()
+        let watchlistText = "Tokido\nKakeru"
+
+        let allEnabled = WatchlistScopeBuilder.build(from: document, watchlistText: watchlistText)
+        let statusOnly = WatchlistScopeBuilder.build(
+            from: document,
+            watchlistText: watchlistText,
+            filter: WatchlistOutputFilter(includeLiving: true, includeEliminated: true, includeWinners: false, includeLosers: false)
+        )
+        let winnersOnly = WatchlistScopeBuilder.build(
+            from: document,
+            watchlistText: watchlistText,
+            filter: WatchlistOutputFilter(includeLiving: false, includeEliminated: false, includeWinners: true, includeLosers: false)
+        )
+        let livingWinnersOnly = WatchlistScopeBuilder.build(
+            from: document,
+            watchlistText: watchlistText,
+            filter: WatchlistOutputFilter(includeLiving: true, includeEliminated: false, includeWinners: true, includeLosers: false)
+        )
+        let allOff = WatchlistScopeBuilder.build(
+            from: document,
+            watchlistText: watchlistText,
+            filter: WatchlistOutputFilter(includeLiving: false, includeEliminated: false, includeWinners: false, includeLosers: false)
+        )
+
+        #expect(allEnabled.summary.matchedEntrantCount == 2)
+        #expect(statusOnly.summary.matchedEntrantCount == 2)
+        #expect(winnersOnly.summary.matchedEntrantCount == 1)
+        #expect(winnersOnly.queries.first { $0.query == "Kakeru" }?.matches.isEmpty == true)
+        #expect(livingWinnersOnly.summary.matchedEntrantCount == 1)
+        #expect(livingWinnersOnly.summary.relatedSetCount == 1)
+        #expect(allOff.summary.matchedEntrantCount == 0)
+        #expect(allOff.summary.relatedSetCount == 0)
+        #expect(allOff.queries.allSatisfy { $0.matches.isEmpty })
+
+        let filteredPreview = WatchlistScopeBuilder.preview(
+            for: watchlistText,
+            document: document,
+            filter: WatchlistOutputFilter(includeLiving: false, includeEliminated: false, includeWinners: true, includeLosers: false)
+        )
+        #expect(filteredPreview.matchedEntrantCount == 1)
+    }
+
     @Test("Matches team prefix queries")
     func matchesTeamPrefixQueries() {
         let document = sampleDocument()
@@ -254,6 +299,21 @@ struct WatchlistScopeTests {
         #expect(markdown.contains("| 未開始 | Round 1 / A101 | Winners Round 2 | ROHTO Z! Tokido |  | 未定 | 予定 |"))
     }
 
+    @Test("Disables watchlist export when all filter checkboxes are off")
+    @MainActor
+    func disablesWatchlistExportWhenAllFilterCheckboxesAreOff() {
+        let viewModel = AppViewModel()
+        viewModel.lastDocument = mixedBracketDocument()
+        viewModel.watchlistText = "Tokido"
+        viewModel.watchlistIncludeLiving = false
+        viewModel.watchlistIncludeEliminated = false
+        viewModel.watchlistIncludeWinners = false
+        viewModel.watchlistIncludeLosers = false
+
+        #expect(viewModel.canSaveWatchlistScope == false)
+        #expect(viewModel.watchlistExportPromptText == "Select at least one output filter.")
+    }
+
     private func sampleDocument() -> ExportDocument {
         let tokido = entrant(id: "1", name: "ROHTO Z! Tokido", tag: "Tokido", seed: 1)
         let kakeru = entrant(id: "2", name: "IBUSHIGIN | Kakeru", tag: "Kakeru", seed: 2)
@@ -338,6 +398,112 @@ struct WatchlistScopeTests {
                     destPhases: [],
                     phaseGroups: [],
                     sets: [completed, pending]
+                )
+            ]
+        )
+    }
+
+    private func mixedBracketDocument() -> ExportDocument {
+        let tokido = entrant(id: "1", name: "ROHTO Z! Tokido", tag: "Tokido", seed: 1)
+        let kakeru = entrant(id: "2", name: "IBUSHIGIN | Kakeru", tag: "Kakeru", seed: 2)
+        let punk = entrant(id: "3", name: "Punk", tag: "Punk", seed: 3)
+
+        let winnersMatch = ExportSet(
+            SetNode(
+                id: FlexibleID("s-winners"),
+                identifier: "A",
+                state: 3,
+                round: 1,
+                fullRoundText: "Winners Round 1",
+                displayScore: "ROHTO Z! Tokido 2 - Punk 0",
+                winnerId: tokido.id,
+                completedAt: 1,
+                startedAt: nil,
+                updatedAt: 1,
+                phaseGroup: PhaseGroupRef(id: FlexibleID("pg1"), displayIdentifier: "A101"),
+                slots: [
+                    slot(entrant: tokido, score: 2, placement: 1),
+                    slot(entrant: punk, score: 0, placement: 2)
+                ]
+            )
+        )
+
+        let losersMatch = ExportSet(
+            SetNode(
+                id: FlexibleID("s-losers"),
+                identifier: "B",
+                state: 3,
+                round: 2,
+                fullRoundText: "Losers Round 2",
+                displayScore: "Punk 2 - IBUSHIGIN | Kakeru 0",
+                winnerId: punk.id,
+                completedAt: 2,
+                startedAt: nil,
+                updatedAt: 2,
+                phaseGroup: PhaseGroupRef(id: FlexibleID("pg2"), displayIdentifier: "B202"),
+                slots: [
+                    slot(entrant: kakeru, score: 0, placement: 2),
+                    slot(entrant: punk, score: 2, placement: 1)
+                ]
+            )
+        )
+
+        let event = EventSummary(
+            id: FlexibleID("e-filter"),
+            name: "Street Fighter 6",
+            slug: "tournament/test/event/street-fighter-6",
+            numEntrants: 3,
+            type: 1,
+            videogame: nil,
+            tournament: TournamentSummary(id: FlexibleID("t-filter"), name: "Test", slug: "tournament/test", timezone: "UTC"),
+            phases: []
+        )
+
+        return ExportDocument(
+            schemaVersion: 1,
+            fetchedAt: "2026-05-23T00:00:00Z",
+            source: ExportSource(
+                inputURL: "https://www.start.gg/tournament/test/event/street-fighter-6",
+                eventSlug: "tournament/test/event/street-fighter-6",
+                apiEndpoint: "https://api.start.gg/gql/alpha",
+                apiMode: StartGGAPIMode.authenticatedFast.rawValue
+            ),
+            summary: ExportSummary(
+                phaseCount: 2,
+                entrantCount: 3,
+                standingCount: 0,
+                setCount: 2,
+                completedSetCount: 2,
+                pendingSetCount: 0,
+                startedSetCount: 0
+            ),
+            event: event,
+            entrants: [tokido, kakeru, punk],
+            standings: [],
+            phases: [
+                PhaseExport(
+                    id: FlexibleID("p1"),
+                    name: "Round 1",
+                    state: "COMPLETED",
+                    groupCount: 1,
+                    bracketType: "DOUBLE_ELIMINATION",
+                    numSeeds: 3,
+                    percentComplete: 100,
+                    destPhases: [],
+                    phaseGroups: [],
+                    sets: [winnersMatch]
+                ),
+                PhaseExport(
+                    id: FlexibleID("p2"),
+                    name: "Round 2",
+                    state: "COMPLETED",
+                    groupCount: 1,
+                    bracketType: "DOUBLE_ELIMINATION",
+                    numSeeds: 3,
+                    percentComplete: 100,
+                    destPhases: [],
+                    phaseGroups: [],
+                    sets: [losersMatch]
                 )
             ]
         )

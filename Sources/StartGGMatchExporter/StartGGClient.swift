@@ -174,7 +174,7 @@ final class StartGGClient: Sendable {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("StartGGMatchExporter/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("StartGGMatchExporter/2.0", forHTTPHeaderField: "User-Agent")
 
         switch mode {
         case .authenticatedFast:

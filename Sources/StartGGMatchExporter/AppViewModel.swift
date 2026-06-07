@@ -25,6 +25,26 @@ final class AppViewModel: ObservableObject {
             UserDefaults.standard.set(watchlistText, forKey: Self.lastWatchlistTextDefaultsKey)
         }
     }
+    @Published var watchlistIncludeLiving = true {
+        didSet {
+            UserDefaults.standard.set(watchlistIncludeLiving, forKey: Self.watchlistIncludeLivingDefaultsKey)
+        }
+    }
+    @Published var watchlistIncludeEliminated = true {
+        didSet {
+            UserDefaults.standard.set(watchlistIncludeEliminated, forKey: Self.watchlistIncludeEliminatedDefaultsKey)
+        }
+    }
+    @Published var watchlistIncludeWinners = true {
+        didSet {
+            UserDefaults.standard.set(watchlistIncludeWinners, forKey: Self.watchlistIncludeWinnersDefaultsKey)
+        }
+    }
+    @Published var watchlistIncludeLosers = true {
+        didSet {
+            UserDefaults.standard.set(watchlistIncludeLosers, forKey: Self.watchlistIncludeLosersDefaultsKey)
+        }
+    }
     @Published var excludedWatchlistText = "" {
         didSet {
             UserDefaults.standard.set(excludedWatchlistText, forKey: Self.lastExcludedWatchlistTextDefaultsKey)
@@ -35,22 +55,49 @@ final class AppViewModel: ObservableObject {
             UserDefaults.standard.set(aiExportMode.rawValue, forKey: Self.aiExportModeDefaultsKey)
         }
     }
+    @Published var autoRefreshEnabled = true {
+        didSet {
+            UserDefaults.standard.set(autoRefreshEnabled, forKey: Self.autoRefreshEnabledDefaultsKey)
+            if autoRefreshEnabled {
+                startBackgroundSync()
+            } else {
+                stopBackgroundSync()
+            }
+        }
+    }
+    @Published private(set) var isBackgroundSyncing = false
+    @Published private(set) var backgroundSyncMessage = "Waiting for a saved event URL."
+    @Published private(set) var lastBackgroundSyncAt: Date?
+    @Published private(set) var nextBackgroundSyncAt: Date?
+    @Published private(set) var backgroundSyncEvents: [String] = []
 
     private var currentTask: Task<Void, Never>?
+    private var backgroundSyncTask: Task<Void, Never>?
     private static let lastEventURLDefaultsKey = "lastEventURL"
     private static let lastWatchlistTextDefaultsKey = "lastWatchlistText"
+    private static let watchlistIncludeLivingDefaultsKey = "watchlistIncludeLiving"
+    private static let watchlistIncludeEliminatedDefaultsKey = "watchlistIncludeEliminated"
+    private static let watchlistIncludeWinnersDefaultsKey = "watchlistIncludeWinners"
+    private static let watchlistIncludeLosersDefaultsKey = "watchlistIncludeLosers"
     private static let lastExcludedWatchlistTextDefaultsKey = "lastExcludedWatchlistText"
     private static let aiExportModeDefaultsKey = "aiExportMode"
+    private static let autoRefreshEnabledDefaultsKey = "autoRefreshEnabled"
+    private static let backgroundRefreshInterval: TimeInterval = 300
 
     init() {
         token = (try? KeychainTokenStore.load()) ?? ""
         eventURL = UserDefaults.standard.string(forKey: Self.lastEventURLDefaultsKey) ?? ""
         watchlistText = UserDefaults.standard.string(forKey: Self.lastWatchlistTextDefaultsKey) ?? ""
+        watchlistIncludeLiving = UserDefaults.standard.object(forKey: Self.watchlistIncludeLivingDefaultsKey) as? Bool ?? true
+        watchlistIncludeEliminated = UserDefaults.standard.object(forKey: Self.watchlistIncludeEliminatedDefaultsKey) as? Bool ?? true
+        watchlistIncludeWinners = UserDefaults.standard.object(forKey: Self.watchlistIncludeWinnersDefaultsKey) as? Bool ?? true
+        watchlistIncludeLosers = UserDefaults.standard.object(forKey: Self.watchlistIncludeLosersDefaultsKey) as? Bool ?? true
         excludedWatchlistText = UserDefaults.standard.string(forKey: Self.lastExcludedWatchlistTextDefaultsKey) ?? ""
         if let rawMode = UserDefaults.standard.string(forKey: Self.aiExportModeDefaultsKey),
            let mode = AIExportMode(rawValue: rawMode) {
             aiExportMode = mode
         }
+        autoRefreshEnabled = UserDefaults.standard.object(forKey: Self.autoRefreshEnabledDefaultsKey) as? Bool ?? true
     }
 
     var canStart: Bool {
@@ -66,14 +113,73 @@ final class AppViewModel: ObservableObject {
         StartGGAPIMode.resolved(for: token)
     }
 
+    var hasValidEventURL: Bool {
+        (try? StartGGURLParser.eventSlug(from: eventURL)) != nil
+    }
+
+    var eventURLStatusText: String {
+        if eventURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Event URL Missing"
+        }
+        return hasValidEventURL ? "Event URL Active" : "Event URL Invalid"
+    }
+
+    var hasAPIToken: Bool {
+        !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var apiTokenStatusText: String {
+        hasAPIToken ? "API Token Active" : "Public Mode"
+    }
+
+    var backgroundRefreshIntervalText: String {
+        "\(Int(Self.backgroundRefreshInterval / 60)) min"
+    }
+
+    var lastBackgroundSyncText: String {
+        guard let lastBackgroundSyncAt else {
+            return "Never"
+        }
+        return Self.timeFormatter.string(from: lastBackgroundSyncAt)
+    }
+
+    var nextBackgroundSyncText: String {
+        guard autoRefreshEnabled else {
+            return "Off"
+        }
+        guard let nextBackgroundSyncAt else {
+            return hasValidEventURL ? "Soon" : "Waiting"
+        }
+        return Self.timeFormatter.string(from: nextBackgroundSyncAt)
+    }
+
     var watchlistPreview: WatchlistPreview {
-        WatchlistScopeBuilder.preview(for: watchlistText, excludedText: excludedWatchlistText, document: lastDocument)
+        WatchlistScopeBuilder.preview(
+            for: watchlistText,
+            excludedText: excludedWatchlistText,
+            document: lastDocument,
+            filter: watchlistExportFilter
+        )
     }
 
     var canSaveWatchlistScope: Bool {
         lastDocument != nil &&
             !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            watchlistExportFilter.isEnabled &&
             !isWorking
+    }
+
+    var watchlistExportFilter: WatchlistOutputFilter {
+        WatchlistOutputFilter(
+            includeLiving: watchlistIncludeLiving,
+            includeEliminated: watchlistIncludeEliminated,
+            includeWinners: watchlistIncludeWinners,
+            includeLosers: watchlistIncludeLosers
+        )
+    }
+
+    var watchlistExportPromptText: String? {
+        watchlistExportFilter.isEnabled ? nil : "Select at least one output filter."
     }
 
     var canSaveAnalysisPacket: Bool {
@@ -111,6 +217,32 @@ final class AppViewModel: ObservableObject {
         } catch {
             appendLog("Token clear failed: \(error.localizedDescription)")
         }
+    }
+
+    func startBackgroundSync() {
+        guard autoRefreshEnabled, backgroundSyncTask == nil else {
+            return
+        }
+        backgroundSyncTask = Task { [weak self] in
+            await self?.runBackgroundFetch(reason: "Launch")
+            while !Task.isCancelled {
+                self?.scheduleNextBackgroundSync()
+                let delay = UInt64(Self.backgroundRefreshInterval * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: delay)
+                guard !Task.isCancelled else {
+                    break
+                }
+                await self?.runBackgroundFetch(reason: "Periodic refresh")
+            }
+        }
+    }
+
+    func stopBackgroundSync() {
+        backgroundSyncTask?.cancel()
+        backgroundSyncTask = nil
+        isBackgroundSyncing = false
+        nextBackgroundSyncAt = nil
+        backgroundSyncMessage = "Background sync is off."
     }
 
     func fetch(forceRefresh: Bool = false) {
@@ -187,7 +319,12 @@ final class AppViewModel: ObservableObject {
                     self.progressMessage = "Fetched \(document.summary.setCount) sets."
                     self.appendLog(didSaveCache ? "Saved cache." : "Cache save skipped. Export data is available in this session.")
                     if !self.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        let preview = WatchlistScopeBuilder.preview(for: self.watchlistText, excludedText: self.excludedWatchlistText, document: document)
+                        let preview = WatchlistScopeBuilder.preview(
+                            for: self.watchlistText,
+                            excludedText: self.excludedWatchlistText,
+                            document: document,
+                            filter: self.watchlistExportFilter
+                        )
                         self.appendLog("Watchlist: \(preview.summaryText)")
                     }
                 }
@@ -256,7 +393,7 @@ final class AppViewModel: ObservableObject {
             let files = try AIExportBuilder.writePacket(document: lastDocument, to: folderURL, options: options)
             lastOutputURL = folderURL
             appendLog("Saved analysis pack.")
-            appendLog("AI output mode: \(aiExportMode.title)")
+            appendLog("Output mode: \(aiExportMode.title)")
             appendLog("Analysis files: \(files.count)")
             NSWorkspace.shared.activateFileViewerSelecting([folderURL])
         } catch {
@@ -265,6 +402,10 @@ final class AppViewModel: ObservableObject {
     }
 
     func saveWatchlistMarkdown() {
+        guard watchlistExportFilter.isEnabled else {
+            appendLog("Select at least one output filter.")
+            return
+        }
         guard let scope = makeWatchlistScope() else {
             appendLog("Fetch data and paste watchlist names before saving a focused report.")
             return
@@ -326,6 +467,91 @@ final class AppViewModel: ObservableObject {
         appendLog("Started/called sets: \(document.summary.startedSetCount)")
     }
 
+    private func scheduleNextBackgroundSync() {
+        guard autoRefreshEnabled else {
+            nextBackgroundSyncAt = nil
+            return
+        }
+        nextBackgroundSyncAt = Date().addingTimeInterval(Self.backgroundRefreshInterval)
+    }
+
+    private func runBackgroundFetch(reason: String) async {
+        guard autoRefreshEnabled else {
+            return
+        }
+        guard !isWorking, !isBackgroundSyncing else {
+            recordBackgroundSyncEvent("Skipped; fetch already running")
+            return
+        }
+        guard hasValidEventURL else {
+            backgroundSyncMessage = "Waiting for a valid Event URL."
+            nextBackgroundSyncAt = nil
+            return
+        }
+
+        isBackgroundSyncing = true
+        backgroundSyncMessage = "\(reason) in progress..."
+        recordBackgroundSyncEvent("\(reason) started")
+
+        let inputURL = eventURL
+        let inputToken = token
+        let mode = apiMode
+        let configurationResult = ExportConfigurationStore.loadOrCreate()
+        let options = configurationResult.configuration.options(for: mode)
+
+        let cachedDocument: ExportDocument?
+        do {
+            let slug = try StartGGURLParser.eventSlug(from: inputURL)
+            cachedDocument = ExportCache.cachedDocument(for: slug, mode: mode)
+        } catch {
+            cachedDocument = nil
+        }
+
+        let service = ExportService(options: options) { [weak self] progress in
+            await MainActor.run {
+                self?.backgroundSyncMessage = progress.total.map {
+                    "\(progress.stage): \(progress.detail) (\(progress.current)/\($0))"
+                } ?? "\(progress.stage): \(progress.detail)"
+            }
+        } partialDocumentHandler: { [weak self] partialDocument in
+            await MainActor.run {
+                self?.backgroundSyncMessage = "Fetched \(partialDocument.phases.count)/\(partialDocument.event.phases.count) phases."
+            }
+        }
+
+        do {
+            let document = try await service.export(from: inputURL, token: inputToken, cachedDocument: cachedDocument)
+            let didSaveCache = ExportCache.save(document)
+            apply(document: document, mode: mode)
+            let updateText = watchlistPreview.relatedSetCount > 0
+                ? "\(watchlistPreview.relatedSetCount) watchlist sets"
+                : "\(document.summary.setCount) sets"
+            backgroundSyncMessage = didSaveCache ? "Updated \(updateText)." : "Updated \(updateText); cache save skipped."
+            lastBackgroundSyncAt = Date()
+            recordBackgroundSyncEvent("Updated \(document.summary.setCount) sets")
+        } catch is CancellationError {
+            backgroundSyncMessage = "Background sync cancelled."
+            recordBackgroundSyncEvent("Cancelled")
+        } catch {
+            if lastDocument == nil, let cachedDocument {
+                apply(document: cachedDocument, mode: mode)
+            }
+            backgroundSyncMessage = "Backoff: \(error.localizedDescription)"
+            recordBackgroundSyncEvent("Backoff after failure")
+        }
+
+        isBackgroundSyncing = false
+        scheduleNextBackgroundSync()
+    }
+
+    private func recordBackgroundSyncEvent(_ message: String) {
+        let timestamp = Self.timeFormatter.string(from: Date())
+        backgroundSyncEvents.insert("\(timestamp) \(message)", at: 0)
+        if backgroundSyncEvents.count > 4 {
+            backgroundSyncEvents.removeLast(backgroundSyncEvents.count - 4)
+        }
+    }
+
     private func clearDisplayedDocument() {
         lastDocument = nil
         lastOutputURL = nil
@@ -340,7 +566,12 @@ final class AppViewModel: ObservableObject {
         guard let lastDocument, !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
         }
-        return WatchlistScopeBuilder.build(from: lastDocument, watchlistText: watchlistText, excludedText: excludedWatchlistText)
+        return WatchlistScopeBuilder.build(
+            from: lastDocument,
+            watchlistText: watchlistText,
+            excludedText: excludedWatchlistText,
+            filter: watchlistExportFilter
+        )
     }
 
     private func cachedDocument(for inputURL: String, mode: StartGGAPIMode) -> ExportDocument? {
@@ -503,4 +734,12 @@ final class AppViewModel: ObservableObject {
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
             .lowercased()
     }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 }
