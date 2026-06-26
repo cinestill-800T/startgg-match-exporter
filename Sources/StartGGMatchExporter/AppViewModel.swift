@@ -48,6 +48,26 @@ struct APISettingsDraft: Equatable {
     }
 }
 
+private struct BackgroundFetchSnapshot: Sendable {
+    var inputURL: String
+    var inputToken: String
+    var mode: StartGGAPIMode
+    var watchlistText: String
+    var excludedWatchlistText: String
+    var watchlistFilter: WatchlistOutputFilter
+}
+
+private struct BackgroundFetchResult: Sendable {
+    var configuration: ExportConfiguration
+    var document: ExportDocument?
+    var cachedDocument: ExportDocument?
+    var didSaveCache: Bool
+    var watchlistPreview: WatchlistPreview?
+    var bracketSummaryText: String?
+    var errorMessage: String?
+    var isCancelled: Bool
+}
+
 @MainActor
 final class AppViewModel: ObservableObject {
     @Published var token: String = ""
@@ -69,31 +89,37 @@ final class AppViewModel: ObservableObject {
     @Published var watchlistText = "" {
         didSet {
             UserDefaults.standard.set(watchlistText, forKey: Self.lastWatchlistTextDefaultsKey)
+            refreshWatchlistPreview()
         }
     }
     @Published var watchlistIncludeLiving = true {
         didSet {
             UserDefaults.standard.set(watchlistIncludeLiving, forKey: Self.watchlistIncludeLivingDefaultsKey)
+            refreshWatchlistPreview()
         }
     }
     @Published var watchlistIncludeEliminated = true {
         didSet {
             UserDefaults.standard.set(watchlistIncludeEliminated, forKey: Self.watchlistIncludeEliminatedDefaultsKey)
+            refreshWatchlistPreview()
         }
     }
     @Published var watchlistIncludeWinners = true {
         didSet {
             UserDefaults.standard.set(watchlistIncludeWinners, forKey: Self.watchlistIncludeWinnersDefaultsKey)
+            refreshWatchlistPreview()
         }
     }
     @Published var watchlistIncludeLosers = true {
         didSet {
             UserDefaults.standard.set(watchlistIncludeLosers, forKey: Self.watchlistIncludeLosersDefaultsKey)
+            refreshWatchlistPreview()
         }
     }
     @Published var excludedWatchlistText = "" {
         didSet {
             UserDefaults.standard.set(excludedWatchlistText, forKey: Self.lastExcludedWatchlistTextDefaultsKey)
+            refreshWatchlistPreview()
         }
     }
     @Published var aiExportMode: AIExportMode = .full {
@@ -119,6 +145,7 @@ final class AppViewModel: ObservableObject {
     @Published var isSettingsPresented = false
     @Published var settingsDraft = SettingsDraft(configuration: .defaultConfiguration)
     @Published private(set) var settingsMessage = ""
+    @Published private(set) var watchlistPreview = WatchlistPreview.empty
 
     private var currentTask: Task<Void, Never>?
     private var backgroundSyncTask: Task<Void, Never>?
@@ -201,15 +228,6 @@ final class AppViewModel: ObservableObject {
             return hasValidEventURL ? "Soon" : "Waiting"
         }
         return Self.timeFormatter.string(from: nextBackgroundSyncAt)
-    }
-
-    var watchlistPreview: WatchlistPreview {
-        WatchlistScopeBuilder.preview(
-            for: watchlistText,
-            excludedText: excludedWatchlistText,
-            document: lastDocument,
-            filter: watchlistExportFilter
-        )
     }
 
     var canSaveWatchlistScope: Bool {
@@ -370,13 +388,7 @@ final class AppViewModel: ObservableObject {
                     self.progressMessage = "Fetched \(document.summary.setCount) sets."
                     self.appendLog(didSaveCache ? "Saved cache." : "Cache save skipped. Export data is available in this session.")
                     if !self.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        let preview = WatchlistScopeBuilder.preview(
-                            for: self.watchlistText,
-                            excludedText: self.excludedWatchlistText,
-                            document: document,
-                            filter: self.watchlistExportFilter
-                        )
-                        self.appendLog("Watchlist: \(preview.summaryText)")
+                        self.appendLog("Watchlist: \(self.watchlistPreview.summaryText)")
                     }
                 }
             } catch is CancellationError {
@@ -534,14 +546,25 @@ final class AppViewModel: ObservableObject {
         }
     }
 
-    private func apply(document: ExportDocument, mode: StartGGAPIMode) {
+    private func apply(
+        document: ExportDocument,
+        mode: StartGGAPIMode,
+        precomputedBracketSummary: String? = nil,
+        precomputedWatchlistPreview: WatchlistPreview? = nil
+    ) {
         lastDocument = document
         isWorking = false
         completedSetCount = document.summary.completedSetCount
         pendingSetCount = document.summary.pendingSetCount
         totalSetCount = document.summary.setCount
         entrantCount = document.summary.entrantCount
-        updateBracketSummary(from: document)
+        bracketSummaryText = precomputedBracketSummary ?? Self.bracketSummaryText(for: document)
+        watchlistPreview = precomputedWatchlistPreview ?? Self.watchlistPreview(
+            for: document,
+            watchlistText: watchlistText,
+            excludedWatchlistText: excludedWatchlistText,
+            filter: watchlistExportFilter
+        )
         appendLog("Event: \(document.event.name ?? document.event.id.value)")
         appendLog("Mode: \(mode.title)")
         appendLog("Entrants: \(document.summary.entrantCount)")
@@ -578,51 +601,52 @@ final class AppViewModel: ObservableObject {
         backgroundSyncMessage = "\(reason) in progress..."
         recordBackgroundSyncEvent("\(reason) started")
 
-        let inputURL = eventURL
-        let inputToken = token
-        let mode = apiMode
-        let configurationResult = ExportConfigurationStore.loadOrCreate()
-        autoFetchIntervalMinutes = configurationResult.configuration.clampedAutoFetchIntervalMinutes
-        let options = configurationResult.configuration.options(for: mode)
-
-        let cachedDocument: ExportDocument?
-        do {
-            let slug = try StartGGURLParser.eventSlug(from: inputURL)
-            cachedDocument = ExportCache.cachedDocument(for: slug, mode: mode)
-        } catch {
-            cachedDocument = nil
-        }
-
-        let service = ExportService(options: options) { [weak self] progress in
+        let snapshot = BackgroundFetchSnapshot(
+            inputURL: eventURL,
+            inputToken: token,
+            mode: apiMode,
+            watchlistText: watchlistText,
+            excludedWatchlistText: excludedWatchlistText,
+            watchlistFilter: watchlistExportFilter
+        )
+        let progressHandler: @Sendable (String) async -> Void = { [weak self] message in
             await MainActor.run {
-                self?.backgroundSyncMessage = progress.total.map {
-                    "\(progress.stage): \(progress.detail) (\(progress.current)/\($0))"
-                } ?? "\(progress.stage): \(progress.detail)"
-            }
-        } partialDocumentHandler: { [weak self] partialDocument in
-            await MainActor.run {
-                self?.backgroundSyncMessage = "Fetched \(partialDocument.phases.count)/\(partialDocument.event.phases.count) phases."
+                self?.backgroundSyncMessage = message
             }
         }
+        let workerTask = Task.detached(priority: .utility) {
+            await Self.performBackgroundFetch(snapshot: snapshot, progressHandler: progressHandler)
+        }
+        let result = await withTaskCancellationHandler {
+            await workerTask.value
+        } onCancel: {
+            workerTask.cancel()
+        }
 
-        do {
-            let document = try await service.export(from: inputURL, token: inputToken, cachedDocument: cachedDocument)
-            let didSaveCache = ExportCache.save(document)
-            apply(document: document, mode: mode)
-            let updateText = watchlistPreview.relatedSetCount > 0
-                ? "\(watchlistPreview.relatedSetCount) watchlist sets"
-                : "\(document.summary.setCount) sets"
-            backgroundSyncMessage = didSaveCache ? "Updated \(updateText)." : "Updated \(updateText); cache save skipped."
-            lastBackgroundSyncAt = Date()
-            recordBackgroundSyncEvent("Updated \(document.summary.setCount) sets")
-        } catch is CancellationError {
+        autoFetchIntervalMinutes = result.configuration.clampedAutoFetchIntervalMinutes
+
+        if result.isCancelled {
             backgroundSyncMessage = "Background sync cancelled."
             recordBackgroundSyncEvent("Cancelled")
-        } catch {
-            if lastDocument == nil, let cachedDocument {
-                apply(document: cachedDocument, mode: mode)
+        } else if let document = result.document {
+            apply(
+                document: document,
+                mode: snapshot.mode,
+                precomputedBracketSummary: result.bracketSummaryText,
+                precomputedWatchlistPreview: result.watchlistPreview
+            )
+            let relatedSetCount = result.watchlistPreview?.relatedSetCount ?? 0
+            let updateText = relatedSetCount > 0
+                ? "\(relatedSetCount) watchlist sets"
+                : "\(document.summary.setCount) sets"
+            backgroundSyncMessage = result.didSaveCache ? "Updated \(updateText)." : "Updated \(updateText); cache save skipped."
+            lastBackgroundSyncAt = Date()
+            recordBackgroundSyncEvent("Updated \(document.summary.setCount) sets")
+        } else if let errorMessage = result.errorMessage {
+            if lastDocument == nil, let cachedDocument = result.cachedDocument {
+                apply(document: cachedDocument, mode: snapshot.mode)
             }
-            backgroundSyncMessage = "Backoff: \(error.localizedDescription)"
+            backgroundSyncMessage = "Backoff: \(errorMessage)"
             recordBackgroundSyncEvent("Backoff after failure")
         }
 
@@ -646,6 +670,7 @@ final class AppViewModel: ObservableObject {
         totalSetCount = 0
         entrantCount = 0
         bracketSummaryText = nil
+        refreshWatchlistPreview()
     }
 
     private var backgroundRefreshInterval: TimeInterval {
@@ -669,6 +694,102 @@ final class AppViewModel: ObservableObject {
         startBackgroundSync()
     }
 
+    private func refreshWatchlistPreview() {
+        watchlistPreview = Self.watchlistPreview(
+            for: lastDocument,
+            watchlistText: watchlistText,
+            excludedWatchlistText: excludedWatchlistText,
+            filter: watchlistExportFilter
+        )
+    }
+
+    nonisolated private static func performBackgroundFetch(
+        snapshot: BackgroundFetchSnapshot,
+        progressHandler: @escaping @Sendable (String) async -> Void
+    ) async -> BackgroundFetchResult {
+        let configurationResult = ExportConfigurationStore.loadOrCreate()
+        let configuration = configurationResult.configuration
+        let options = configuration.options(for: snapshot.mode)
+
+        let cachedDocument: ExportDocument?
+        do {
+            let slug = try StartGGURLParser.eventSlug(from: snapshot.inputURL)
+            cachedDocument = ExportCache.cachedDocument(for: slug, mode: snapshot.mode)
+        } catch {
+            cachedDocument = nil
+        }
+
+        let service = ExportService(options: options) { progress in
+            await progressHandler(
+                progress.total.map {
+                    "\(progress.stage): \(progress.detail) (\(progress.current)/\($0))"
+                } ?? "\(progress.stage): \(progress.detail)"
+            )
+        } partialDocumentHandler: { partialDocument in
+            await progressHandler("Fetched \(partialDocument.phases.count)/\(partialDocument.event.phases.count) phases.")
+        }
+
+        do {
+            let document = try await service.export(
+                from: snapshot.inputURL,
+                token: snapshot.inputToken,
+                cachedDocument: cachedDocument
+            )
+            let didSaveCache = ExportCache.save(document)
+            return BackgroundFetchResult(
+                configuration: configuration,
+                document: document,
+                cachedDocument: cachedDocument,
+                didSaveCache: didSaveCache,
+                watchlistPreview: watchlistPreview(
+                    for: document,
+                    watchlistText: snapshot.watchlistText,
+                    excludedWatchlistText: snapshot.excludedWatchlistText,
+                    filter: snapshot.watchlistFilter
+                ),
+                bracketSummaryText: bracketSummaryText(for: document),
+                errorMessage: nil,
+                isCancelled: false
+            )
+        } catch is CancellationError {
+            return BackgroundFetchResult(
+                configuration: configuration,
+                document: nil,
+                cachedDocument: cachedDocument,
+                didSaveCache: false,
+                watchlistPreview: nil,
+                bracketSummaryText: nil,
+                errorMessage: nil,
+                isCancelled: true
+            )
+        } catch {
+            return BackgroundFetchResult(
+                configuration: configuration,
+                document: nil,
+                cachedDocument: cachedDocument,
+                didSaveCache: false,
+                watchlistPreview: nil,
+                bracketSummaryText: nil,
+                errorMessage: error.localizedDescription,
+                isCancelled: false
+            )
+        }
+    }
+
+    nonisolated private static func watchlistPreview(
+        for document: ExportDocument?,
+        watchlistText: String,
+        excludedWatchlistText: String,
+        filter: WatchlistOutputFilter
+    ) -> WatchlistPreview {
+        WatchlistScopeBuilder.preview(
+            for: watchlistText,
+            excludedText: excludedWatchlistText,
+            document: document,
+            filter: filter
+        )
+    }
+
     private func makeWatchlistScope() -> WatchlistExportDocument? {
         guard let lastDocument, !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
@@ -688,11 +809,7 @@ final class AppViewModel: ObservableObject {
         return ExportCache.cachedDocument(for: slug, mode: mode)
     }
 
-    private func updateBracketSummary(from document: ExportDocument) {
-        bracketSummaryText = Self.bracketSummaryText(for: document)
-    }
-
-    private static func bracketSummaryText(for document: ExportDocument) -> String? {
+    nonisolated private static func bracketSummaryText(for document: ExportDocument) -> String? {
         let eventPhases = document.event.phases
         guard !eventPhases.isEmpty else {
             return "No bracket phases were returned by start.gg for this event."
@@ -737,7 +854,7 @@ final class AppViewModel: ObservableObject {
         return text
     }
 
-    private static func bracketPhaseStatus(for phase: PhaseExport) -> String {
+    nonisolated private static func bracketPhaseStatus(for phase: PhaseExport) -> String {
         let completedSetCount = phase.sets.filter { StartGGSetState.isCompleted($0.state) }.count
         let hasActiveSet = phase.sets.contains { StartGGSetState.isActive($0.state) }
         let hasPendingSet = phase.sets.contains { StartGGSetState.isPending($0.state) }
@@ -762,7 +879,7 @@ final class AppViewModel: ObservableObject {
         return "pending"
     }
 
-    private static func nextBracketPhaseName(
+    nonisolated private static func nextBracketPhaseName(
         currentPhase: PhaseExport,
         currentIndex: Int,
         eventPhases: [PhaseSummary]
@@ -781,19 +898,19 @@ final class AppViewModel: ObservableObject {
         return phaseDisplayName(from: eventPhases[nextIndex])
     }
 
-    private static func phaseDisplayName(from phase: PhaseSummary) -> String {
+    nonisolated private static func phaseDisplayName(from phase: PhaseSummary) -> String {
         phaseDisplayName(from: phase.name, fallback: phase.id.value)
     }
 
-    private static func phaseDisplayName(from phase: DestinationPhase) -> String {
+    nonisolated private static func phaseDisplayName(from phase: DestinationPhase) -> String {
         phaseDisplayName(from: phase.name, fallback: phase.id.value)
     }
 
-    private static func phaseDisplayName(from phase: PhaseExport, fallback: PhaseSummary) -> String {
+    nonisolated private static func phaseDisplayName(from phase: PhaseExport, fallback: PhaseSummary) -> String {
         phaseDisplayName(from: phase.name, fallback: fallback.name ?? fallback.id.value)
     }
 
-    private static func phaseDisplayName(from value: String?, fallback: String) -> String {
+    nonisolated private static func phaseDisplayName(from value: String?, fallback: String) -> String {
         let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let trimmed, !trimmed.isEmpty {
             return trimmed

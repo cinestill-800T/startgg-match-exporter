@@ -1,6 +1,6 @@
 import Foundation
 
-struct WatchlistPreview: Equatable {
+struct WatchlistPreview: Equatable, Sendable {
     var queryCount: Int
     var matchedQueryCount: Int
     var matchedEntrantCount: Int
