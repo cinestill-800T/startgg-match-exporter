@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import StartGGMatchExporter
 
@@ -59,6 +60,7 @@ struct ExportConfigurationTests {
         config._notes = ["old"]
         config.officialAPI._notes = ["old official"]
         config.publicAPI._notes = ["old public"]
+        config.autoFetchIntervalMinutes = 12
         config.officialAPI.minimumRequestIntervalSeconds = 0.9
         config.officialAPI.concurrentRequests = 2
         config.publicAPI.setPageSize = 25
@@ -68,6 +70,7 @@ struct ExportConfigurationTests {
         #expect(refreshed._notes == ExportConfiguration.defaultConfiguration._notes)
         #expect(refreshed.officialAPI._notes == ExportConfiguration.defaultConfiguration.officialAPI._notes)
         #expect(refreshed.publicAPI._notes == ExportConfiguration.defaultConfiguration.publicAPI._notes)
+        #expect(refreshed.autoFetchIntervalMinutes == 12)
         #expect(refreshed.officialAPI.minimumRequestIntervalSeconds == 0.9)
         #expect(refreshed.officialAPI.concurrentRequests == 2)
         #expect(refreshed.publicAPI.setPageSize == 25)
@@ -94,5 +97,57 @@ struct ExportConfigurationTests {
         #expect(refreshed.publicAPI.setPageSize == ExportConfiguration.defaultConfiguration.publicAPI.setPageSize)
         #expect(refreshed.publicAPI.entrantPageSize == ExportConfiguration.defaultConfiguration.publicAPI.entrantPageSize)
         #expect(refreshed.publicAPI.minimumRequestIntervalSeconds == ExportConfiguration.defaultConfiguration.publicAPI.minimumRequestIntervalSeconds)
+    }
+
+    @Test("Missing auto-fetch interval decodes to default")
+    func missingAutoFetchIntervalDecodesToDefault() throws {
+        let json = """
+        {
+          "_notes": [],
+          "officialAPI": {
+            "_notes": [],
+            "concurrentRequests": 2,
+            "entrantPageSize": 150,
+            "maxRetries": 8,
+            "minimumRequestIntervalSeconds": 0.76,
+            "rateLimitInitialPauseSeconds": 45,
+            "rateLimitMaxPauseSeconds": 180,
+            "rateLimitPauseIncrementSeconds": 30,
+            "serverErrorInitialPauseSeconds": 1.5,
+            "serverErrorMaxPauseSeconds": 30,
+            "setPageSize": 45,
+            "standingPageSize": 45
+          },
+          "publicAPI": {
+            "_notes": [],
+            "concurrentRequests": 1,
+            "entrantPageSize": 200,
+            "maxRetries": 6,
+            "minimumRequestIntervalSeconds": 0.76,
+            "rateLimitInitialPauseSeconds": 60,
+            "rateLimitMaxPauseSeconds": 240,
+            "rateLimitPauseIncrementSeconds": 45,
+            "serverErrorInitialPauseSeconds": 2,
+            "serverErrorMaxPauseSeconds": 45,
+            "setPageSize": 75,
+            "standingPageSize": 100
+          }
+        }
+        """
+
+        let config = try JSONDecoder().decode(ExportConfiguration.self, from: Data(json.utf8))
+
+        #expect(config.autoFetchIntervalMinutes == ExportConfiguration.defaultAutoFetchIntervalMinutes)
+    }
+
+    @Test("Auto-fetch interval is clamped for runtime use")
+    func autoFetchIntervalIsClampedForRuntimeUse() {
+        var config = ExportConfiguration.defaultConfiguration
+
+        config.autoFetchIntervalMinutes = 0
+        #expect(config.refreshingNotes().autoFetchIntervalMinutes == 1)
+
+        config.autoFetchIntervalMinutes = 120
+        #expect(config.refreshingNotes().autoFetchIntervalMinutes == 60)
     }
 }

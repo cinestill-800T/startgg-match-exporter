@@ -4,49 +4,68 @@ struct ContentView: View {
     @StateObject private var viewModel = AppViewModel()
 
     var body: some View {
-        HStack(spacing: 0) {
+        HSplitView {
             sidebar
-            Divider()
+                .frame(minWidth: 320, idealWidth: 360, maxWidth: 440)
+
             mainPanel
+                .frame(minWidth: 560, idealWidth: 820, maxWidth: .infinity)
         }
-        .frame(width: 1180, height: 760)
+        .frame(minWidth: 1080, idealWidth: 1260, minHeight: 760)
         .background(Color(nsColor: .windowBackgroundColor))
+        .sheet(isPresented: $viewModel.isSettingsPresented) {
+            SettingsView(viewModel: viewModel)
+        }
         .task {
             viewModel.startBackgroundSync()
         }
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            header
-            modePanel
-            sourcePanel
-            manualFetchPanel
-            Spacer(minLength: 16)
-            configPanel
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                modePanel
+                sourcePanel
+                manualFetchPanel
+                configPanel
+            }
+            .padding(20)
         }
-        .padding(22)
-        .frame(width: 360)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
     private var mainPanel: some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 16) {
-                watchlistPanel
-                outputPanel
-            }
-            .frame(width: 430, alignment: .topLeading)
+        ScrollView {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        watchlistPanel
+                        outputPanel
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
 
-            VStack(alignment: .leading, spacing: 16) {
-                matchProgressPanel
-                backgroundSyncPanel
-                statusPanel
+                    VStack(alignment: .leading, spacing: 16) {
+                        matchProgressPanel
+                        backgroundSyncPanel
+                        statusPanel
+                    }
+                    .frame(width: 340, alignment: .topLeading)
+                }
+
+                VStack(alignment: .leading, spacing: 16) {
+                    watchlistPanel
+                    outputPanel
+                    matchProgressPanel
+                    backgroundSyncPanel
+                    statusPanel
+                }
             }
-            .frame(width: 325, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(20)
         }
-        .padding(22)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var header: some View {
@@ -62,14 +81,14 @@ struct ContentView: View {
     }
 
     private var modePanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        sectionSurface {
             panelTitle("Connection")
-            HStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 Image(systemName: viewModel.apiMode == .authenticatedFast ? "lock.shield.fill" : "tortoise.fill")
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(viewModel.apiMode == .authenticatedFast ? .green : .blue)
                     .frame(width: 22)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(viewModel.apiMode.title)
                         .font(.headline)
                     Text(viewModel.apiMode.shortDescription)
@@ -78,18 +97,15 @@ struct ContentView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(12)
-            .background(Color(nsColor: .textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .help(viewModel.apiMode.helpText)
         }
     }
 
     private var sourcePanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        sectionSurface {
             panelTitle("Source")
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Event URL")
                     .font(.subheadline.weight(.medium))
                 TextField("https://www.start.gg/tournament/.../event/street-fighter-6", text: $viewModel.eventURL)
@@ -101,7 +117,7 @@ struct ContentView: View {
                 )
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("API Token")
                     .font(.subheadline.weight(.medium))
                 SecureField("Paste token for authenticated mode", text: $viewModel.token)
@@ -114,14 +130,14 @@ struct ContentView: View {
                 Button {
                     viewModel.saveToken()
                 } label: {
-                    Label("Save", systemImage: "key")
+                    Label("Save Token", systemImage: "key")
                 }
                 .help("Save the current token in the macOS Keychain. Saving an empty field clears the saved token.")
 
                 Button {
                     viewModel.clearToken()
                 } label: {
-                    Label("Clear", systemImage: "xmark.circle")
+                    Label("Clear Token", systemImage: "xmark.circle")
                 }
                 .help("Remove the saved token and return to Public Safe Mode.")
             }
@@ -130,22 +146,22 @@ struct ContentView: View {
     }
 
     private var configPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        sectionSurface {
             panelTitle("Settings")
 
             Button {
-                viewModel.revealConfig()
+                viewModel.openSettings()
             } label: {
-                Label("Config", systemImage: "slider.horizontal.3")
+                Label("Settings", systemImage: "slider.horizontal.3")
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.regular)
-            .help("Open the generated config.json. Use it to tune request pacing, page sizes, concurrency, and retry waits.")
+            .help("Open app settings for auto-fetch, request pacing, concurrency, and page sizes.")
         }
     }
 
     private var manualFetchPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        sectionSurface {
             panelTitle("Manual Fetch")
 
             HStack(spacing: 8) {
@@ -183,7 +199,7 @@ struct ContentView: View {
     }
 
     private var outputPanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        sectionSurface {
             panelTitle("Output")
 
             HStack(spacing: 10) {
@@ -247,7 +263,7 @@ struct ContentView: View {
     }
 
     private var matchProgressPanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        sectionSurface {
             panelTitle("Match Progress")
             VStack(spacing: 10) {
                 metric("Total Sets", value: viewModel.totalSetCount)
@@ -278,7 +294,7 @@ struct ContentView: View {
     }
 
     private var backgroundSyncPanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        sectionSurface {
             HStack {
                 panelTitle("Background Sync")
                 Spacer()
@@ -288,7 +304,7 @@ struct ContentView: View {
                 )
             }
 
-            Toggle("Auto-fetch on launch and every 5 min", isOn: $viewModel.autoRefreshEnabled)
+            Toggle("Auto-fetch on launch and every \(viewModel.backgroundRefreshIntervalText)", isOn: $viewModel.autoRefreshEnabled)
                 .toggleStyle(.switch)
                 .help("Keep the current event fresh while the app is open. Requests use the existing throttled queue.")
 
@@ -325,13 +341,10 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(14)
-        .background(Color(nsColor: .textBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private var statusPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        sectionSurface {
             panelTitle("Status")
             HStack(spacing: 10) {
                 if viewModel.isWorking {
@@ -345,12 +358,11 @@ struct ContentView: View {
                     .foregroundStyle(viewModel.isWorking ? .primary : .secondary)
                     .lineLimit(2)
             }
-
         }
     }
 
     private var watchlistPanel: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        sectionSurface {
             panelTitle("Watchlist")
             watchlistTextEditor(
                 title: "Teams or players to track",
@@ -470,6 +482,21 @@ struct ContentView: View {
             .textCase(.uppercase)
     }
 
+    @ViewBuilder
+    private func sectionSurface<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            content()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
+        )
+    }
+
     private var matchProgressValue: Double {
         guard viewModel.totalSetCount > 0 else {
             return 0
@@ -525,5 +552,208 @@ struct ContentView: View {
         .background(Color(nsColor: .textBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .help("\(label): \(value.formatted())")
+    }
+}
+
+private struct SettingsView: View {
+    @ObservedObject var viewModel: AppViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Settings")
+                    .font(.title2.weight(.semibold))
+                Text("Adjust the settings that affect ongoing fetches. Advanced retry timing remains in config.json for compatibility.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding([.horizontal, .top], 22)
+            .padding(.bottom, 16)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Stepper(value: $viewModel.settingsDraft.autoFetchIntervalMinutes, in: 1...60, step: 1) {
+                                settingRow(
+                                    title: "Auto-fetch interval",
+                                    value: "\(viewModel.settingsDraft.autoFetchIntervalMinutes) min",
+                                    description: "Used when background sync is enabled."
+                                )
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } label: {
+                        Label("Background Sync", systemImage: "arrow.clockwise")
+                    }
+
+                    TabView {
+                        apiSettingsSection(
+                            modeTitle: "Authenticated Safe Mode",
+                            modeDescription: "Used when an API token is saved.",
+                            settings: $viewModel.settingsDraft.officialAPI
+                        )
+                        .tabItem {
+                            Text("Authenticated")
+                        }
+
+                        apiSettingsSection(
+                            modeTitle: "Public Safe Mode",
+                            modeDescription: "Used when no API token is available.",
+                            settings: $viewModel.settingsDraft.publicAPI
+                        )
+                        .tabItem {
+                            Text("Public")
+                        }
+                    }
+                    .frame(minHeight: 310)
+
+                    if !viewModel.settingsMessage.isEmpty {
+                        Text(viewModel.settingsMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(22)
+            }
+
+            Divider()
+
+            HStack(spacing: 10) {
+                Button {
+                    viewModel.resetSettingsDraft()
+                } label: {
+                    Label("Defaults", systemImage: "arrow.counterclockwise")
+                }
+                .help("Restore recommended defaults in this form. Save to apply them.")
+
+                Button {
+                    viewModel.revealConfig()
+                } label: {
+                    Label("Show Config File", systemImage: "doc.text.magnifyingglass")
+                }
+                .help("Reveal config.json for advanced settings that are not shown here.")
+
+                Spacer()
+
+                Button("Cancel") {
+                    viewModel.isSettingsPresented = false
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Button {
+                    viewModel.saveSettings()
+                } label: {
+                    Label("Save", systemImage: "checkmark")
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(16)
+        }
+        .frame(width: 620, height: 560)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private func apiSettingsSection(
+        modeTitle: String,
+        modeDescription: String,
+        settings: Binding<APISettingsDraft>
+    ) -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(modeTitle)
+                        .font(.headline)
+                    Text(modeDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Stepper(value: settings.minimumRequestIntervalSeconds, in: 0.2...30, step: 0.05) {
+                        settingRow(
+                            title: "Request interval",
+                            value: String(format: "%.2f sec", settings.wrappedValue.minimumRequestIntervalSeconds),
+                            description: "Minimum wait between start.gg requests. Raise this if 429 errors appear."
+                        )
+                    }
+
+                    Stepper(value: settings.concurrentRequests, in: 1...4, step: 1) {
+                        settingRow(
+                            title: "Concurrent page requests",
+                            value: "\(settings.wrappedValue.concurrentRequests)",
+                            description: "Higher values can fetch faster but increase rate-limit risk."
+                        )
+                    }
+
+                    Divider()
+
+                    pageSizeStepper(
+                        title: "Set page size",
+                        value: settings.setPageSize,
+                        range: 1...100,
+                        description: "Number of matches requested per page."
+                    )
+
+                    pageSizeStepper(
+                        title: "Entrant page size",
+                        value: settings.entrantPageSize,
+                        range: 1...200,
+                        description: "Number of entrants requested per page."
+                    )
+
+                    pageSizeStepper(
+                        title: "Standing page size",
+                        value: settings.standingPageSize,
+                        range: 1...200,
+                        description: "Number of standings rows requested per page."
+                    )
+                }
+            }
+            .padding(.vertical, 4)
+        } label: {
+            Label("Fetch Tuning", systemImage: "speedometer")
+        }
+    }
+
+    private func pageSizeStepper(
+        title: String,
+        value: Binding<Int>,
+        range: ClosedRange<Int>,
+        description: String
+    ) -> some View {
+        Stepper(value: value, in: range, step: 5) {
+            settingRow(
+                title: title,
+                value: "\(value.wrappedValue)",
+                description: description
+            )
+        }
+    }
+
+    private func settingRow(title: String, value: String, description: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 16)
+            Text(value)
+                .font(.system(.body, design: .monospaced).weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 78, alignment: .trailing)
+        }
     }
 }

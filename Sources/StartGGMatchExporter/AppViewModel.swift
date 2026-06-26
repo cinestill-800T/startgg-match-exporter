@@ -2,6 +2,52 @@ import AppKit
 import Foundation
 import UniformTypeIdentifiers
 
+struct SettingsDraft: Equatable {
+    var autoFetchIntervalMinutes: Int
+    var officialAPI: APISettingsDraft
+    var publicAPI: APISettingsDraft
+
+    init(configuration: ExportConfiguration) {
+        autoFetchIntervalMinutes = configuration.clampedAutoFetchIntervalMinutes
+        officialAPI = APISettingsDraft(configuration: configuration.officialAPI)
+        publicAPI = APISettingsDraft(configuration: configuration.publicAPI)
+    }
+
+    func applying(to configuration: ExportConfiguration) -> ExportConfiguration {
+        var updated = configuration
+        updated.autoFetchIntervalMinutes = autoFetchIntervalMinutes
+        updated.officialAPI = officialAPI.applying(to: updated.officialAPI)
+        updated.publicAPI = publicAPI.applying(to: updated.publicAPI)
+        return updated.refreshingNotes()
+    }
+}
+
+struct APISettingsDraft: Equatable {
+    var minimumRequestIntervalSeconds: Double
+    var concurrentRequests: Int
+    var setPageSize: Int
+    var entrantPageSize: Int
+    var standingPageSize: Int
+
+    init(configuration: ExportAPIConfiguration) {
+        minimumRequestIntervalSeconds = configuration.minimumRequestIntervalSeconds
+        concurrentRequests = configuration.concurrentRequests
+        setPageSize = configuration.setPageSize
+        entrantPageSize = configuration.entrantPageSize
+        standingPageSize = configuration.standingPageSize
+    }
+
+    func applying(to configuration: ExportAPIConfiguration) -> ExportAPIConfiguration {
+        var updated = configuration
+        updated.minimumRequestIntervalSeconds = minimumRequestIntervalSeconds
+        updated.concurrentRequests = concurrentRequests
+        updated.setPageSize = setPageSize
+        updated.entrantPageSize = entrantPageSize
+        updated.standingPageSize = standingPageSize
+        return updated
+    }
+}
+
 @MainActor
 final class AppViewModel: ObservableObject {
     @Published var token: String = ""
@@ -70,9 +116,13 @@ final class AppViewModel: ObservableObject {
     @Published private(set) var lastBackgroundSyncAt: Date?
     @Published private(set) var nextBackgroundSyncAt: Date?
     @Published private(set) var backgroundSyncEvents: [String] = []
+    @Published var isSettingsPresented = false
+    @Published var settingsDraft = SettingsDraft(configuration: .defaultConfiguration)
+    @Published private(set) var settingsMessage = ""
 
     private var currentTask: Task<Void, Never>?
     private var backgroundSyncTask: Task<Void, Never>?
+    private var autoFetchIntervalMinutes = ExportConfiguration.defaultAutoFetchIntervalMinutes
     private static let lastEventURLDefaultsKey = "lastEventURL"
     private static let lastWatchlistTextDefaultsKey = "lastWatchlistText"
     private static let watchlistIncludeLivingDefaultsKey = "watchlistIncludeLiving"
@@ -82,7 +132,6 @@ final class AppViewModel: ObservableObject {
     private static let lastExcludedWatchlistTextDefaultsKey = "lastExcludedWatchlistText"
     private static let aiExportModeDefaultsKey = "aiExportMode"
     private static let autoRefreshEnabledDefaultsKey = "autoRefreshEnabled"
-    private static let backgroundRefreshInterval: TimeInterval = 300
 
     init() {
         token = (try? KeychainTokenStore.load()) ?? ""
@@ -98,6 +147,7 @@ final class AppViewModel: ObservableObject {
             aiExportMode = mode
         }
         autoRefreshEnabled = UserDefaults.standard.object(forKey: Self.autoRefreshEnabledDefaultsKey) as? Bool ?? true
+        loadRuntimeConfiguration()
     }
 
     var canStart: Bool {
@@ -133,7 +183,7 @@ final class AppViewModel: ObservableObject {
     }
 
     var backgroundRefreshIntervalText: String {
-        "\(Int(Self.backgroundRefreshInterval / 60)) min"
+        "\(autoFetchIntervalMinutes) min"
     }
 
     var lastBackgroundSyncText: String {
@@ -227,7 +277,8 @@ final class AppViewModel: ObservableObject {
             await self?.runBackgroundFetch(reason: "Launch")
             while !Task.isCancelled {
                 self?.scheduleNextBackgroundSync()
-                let delay = UInt64(Self.backgroundRefreshInterval * 1_000_000_000)
+                let delaySeconds = self?.backgroundRefreshInterval ?? 300
+                let delay = UInt64(delaySeconds * 1_000_000_000)
                 try? await Task.sleep(nanoseconds: delay)
                 guard !Task.isCancelled else {
                     break
@@ -449,6 +500,40 @@ final class AppViewModel: ObservableObject {
         appendLog("Config opened.")
     }
 
+    func openSettings() {
+        let result = ExportConfigurationStore.loadOrCreate()
+        autoFetchIntervalMinutes = result.configuration.clampedAutoFetchIntervalMinutes
+        settingsDraft = SettingsDraft(configuration: result.configuration)
+        settingsMessage = result.warning ?? "Settings loaded."
+        isSettingsPresented = true
+    }
+
+    func resetSettingsDraft() {
+        settingsDraft = SettingsDraft(configuration: .defaultConfiguration)
+        settingsMessage = "Defaults restored in the form. Save to apply."
+    }
+
+    func saveSettings() {
+        let currentConfiguration = ExportConfigurationStore.loadOrCreate().configuration
+        let nextConfiguration = settingsDraft.applying(to: currentConfiguration)
+        let previousInterval = autoFetchIntervalMinutes
+
+        do {
+            let url = try ExportConfigurationStore.save(nextConfiguration)
+            autoFetchIntervalMinutes = nextConfiguration.clampedAutoFetchIntervalMinutes
+            settingsDraft = SettingsDraft(configuration: nextConfiguration)
+            settingsMessage = "Settings saved."
+            appendLog("Settings saved: \(url.lastPathComponent)")
+            if previousInterval != autoFetchIntervalMinutes {
+                restartBackgroundSyncIfNeeded()
+            }
+            isSettingsPresented = false
+        } catch {
+            settingsMessage = "Settings save failed: \(error.localizedDescription)"
+            appendLog(settingsMessage)
+        }
+    }
+
     private func apply(document: ExportDocument, mode: StartGGAPIMode) {
         lastDocument = document
         isWorking = false
@@ -472,7 +557,7 @@ final class AppViewModel: ObservableObject {
             nextBackgroundSyncAt = nil
             return
         }
-        nextBackgroundSyncAt = Date().addingTimeInterval(Self.backgroundRefreshInterval)
+        nextBackgroundSyncAt = Date().addingTimeInterval(backgroundRefreshInterval)
     }
 
     private func runBackgroundFetch(reason: String) async {
@@ -497,6 +582,7 @@ final class AppViewModel: ObservableObject {
         let inputToken = token
         let mode = apiMode
         let configurationResult = ExportConfigurationStore.loadOrCreate()
+        autoFetchIntervalMinutes = configurationResult.configuration.clampedAutoFetchIntervalMinutes
         let options = configurationResult.configuration.options(for: mode)
 
         let cachedDocument: ExportDocument?
@@ -560,6 +646,27 @@ final class AppViewModel: ObservableObject {
         totalSetCount = 0
         entrantCount = 0
         bracketSummaryText = nil
+    }
+
+    private var backgroundRefreshInterval: TimeInterval {
+        Double(autoFetchIntervalMinutes * 60)
+    }
+
+    private func loadRuntimeConfiguration() {
+        let result = ExportConfigurationStore.loadOrCreate()
+        autoFetchIntervalMinutes = result.configuration.clampedAutoFetchIntervalMinutes
+        settingsDraft = SettingsDraft(configuration: result.configuration)
+        if let warning = result.warning {
+            settingsMessage = warning
+        }
+    }
+
+    private func restartBackgroundSyncIfNeeded() {
+        guard autoRefreshEnabled else {
+            return
+        }
+        stopBackgroundSync()
+        startBackgroundSync()
     }
 
     private func makeWatchlistScope() -> WatchlistExportDocument? {

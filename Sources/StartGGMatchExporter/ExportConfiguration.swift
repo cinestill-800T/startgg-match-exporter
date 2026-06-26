@@ -2,18 +2,22 @@ import Foundation
 
 struct ExportConfiguration: Codable, Sendable, Equatable {
     var _notes: [String]
+    var autoFetchIntervalMinutes: Int
     var officialAPI: ExportAPIConfiguration
     var publicAPI: ExportAPIConfiguration
 
+    static let defaultAutoFetchIntervalMinutes = 5
+
     static let defaultConfiguration = ExportConfiguration(
         _notes: [
-            "StartGG Match Exporter は Fetch または Refresh を開始するたびにこの config.json を読み込みます。アプリの再起動は不要です。",
+            "StartGG Match Exporter は Settings モーダルで主要な設定を変更できます。Fetch または Refresh を開始するたびにこの config.json も読み込みます。",
             "初期値は速度優先です。start.gg が公開している平均レート制限 80 requests/min の直前を狙っています。",
             "HTTP 429 が出る場合は minimumRequestIntervalSeconds を大きくするか concurrentRequests を小さくしてください。その後、通常の Fetch を実行すると完全キャッシュを再利用できます。",
             "Refresh はローカルキャッシュを無視して start.gg から取り直したい場合だけ使ってください。大会進行に合わせた通常更新では Fetch の利用を推奨します。",
             "Page size は GraphQL の複雑度に強く影響します。リクエスト間隔が十分でも、page size を上げすぎると 1000 objects 制限で失敗することがあります。",
-            "この初期値で 429 や 1000 objects 制限が出る場合は、minimumRequestIntervalSeconds を 0.9 から 1.2 へ上げる、または setPageSize / standingPageSize を 30 以下へ下げてください。"
+            "リトライ待機時間などの詳細値は互換性のため config.json に残していますが、通常は変更不要です。"
         ],
+        autoFetchIntervalMinutes: defaultAutoFetchIntervalMinutes,
         officialAPI: ExportAPIConfiguration(
             _notes: [
                 "API Token が入力されている場合に使われる設定です。公式 start.gg GraphQL API に Authorization ヘッダー付きでアクセスします。",
@@ -61,6 +65,41 @@ struct ExportConfiguration: Codable, Sendable, Equatable {
         )
     )
 
+    enum CodingKeys: String, CodingKey {
+        case _notes
+        case autoFetchIntervalMinutes
+        case officialAPI
+        case publicAPI
+    }
+
+    init(
+        _notes: [String],
+        autoFetchIntervalMinutes: Int,
+        officialAPI: ExportAPIConfiguration,
+        publicAPI: ExportAPIConfiguration
+    ) {
+        self._notes = _notes
+        self.autoFetchIntervalMinutes = autoFetchIntervalMinutes
+        self.officialAPI = officialAPI
+        self.publicAPI = publicAPI
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        _notes = try container.decodeIfPresent([String].self, forKey: ._notes) ?? []
+        autoFetchIntervalMinutes = try container.decodeIfPresent(Int.self, forKey: .autoFetchIntervalMinutes) ?? Self.defaultAutoFetchIntervalMinutes
+        officialAPI = try container.decode(ExportAPIConfiguration.self, forKey: .officialAPI)
+        publicAPI = try container.decode(ExportAPIConfiguration.self, forKey: .publicAPI)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(_notes, forKey: ._notes)
+        try container.encode(autoFetchIntervalMinutes, forKey: .autoFetchIntervalMinutes)
+        try container.encode(officialAPI, forKey: .officialAPI)
+        try container.encode(publicAPI, forKey: .publicAPI)
+    }
+
     private static let previousBalancedOfficialAPI = ExportAPIConfiguration(
         _notes: [],
         setPageSize: 10,
@@ -100,6 +139,10 @@ struct ExportConfiguration: Codable, Sendable, Equatable {
         }
     }
 
+    var clampedAutoFetchIntervalMinutes: Int {
+        Swift.max(1, Swift.min(autoFetchIntervalMinutes, 60))
+    }
+
     func refreshingNotes() -> ExportConfiguration {
         var configuration = self
         if officialAPI.hasSameTuning(as: Self.previousBalancedOfficialAPI) {
@@ -109,6 +152,7 @@ struct ExportConfiguration: Codable, Sendable, Equatable {
             configuration.publicAPI = Self.defaultConfiguration.publicAPI
         }
         configuration._notes = Self.defaultConfiguration._notes
+        configuration.autoFetchIntervalMinutes = clampedAutoFetchIntervalMinutes
         configuration.officialAPI._notes = Self.defaultConfiguration.officialAPI._notes
         configuration.publicAPI._notes = Self.defaultConfiguration.publicAPI._notes
         return configuration
@@ -173,6 +217,17 @@ enum ExportConfigurationStore {
         var warning: String?
     }
 
+    enum StoreError: LocalizedError {
+        case supportFolderUnavailable
+
+        var errorDescription: String? {
+            switch self {
+            case .supportFolderUnavailable:
+                "Application Support フォルダを利用できないため、設定を保存できません。"
+            }
+        }
+    }
+
     private static let folderName = "StartGGMatchExporter"
     private static let filename = "config.json"
 
@@ -219,6 +274,16 @@ enum ExportConfigurationStore {
             return nil
         }
         return support.appendingPathComponent(folderName, isDirectory: true).appendingPathComponent(filename)
+    }
+
+    @discardableResult
+    static func save(_ configuration: ExportConfiguration) throws -> URL {
+        guard let url = configURL else {
+            throw StoreError.supportFolderUnavailable
+        }
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try write(configuration.refreshingNotes(), to: url)
+        return url
     }
 
     private static func writeDefault(to url: URL) throws {
