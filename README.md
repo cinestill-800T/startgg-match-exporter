@@ -2,6 +2,7 @@
 
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey.svg)](https://www.apple.com/macos/)
+[![Release](https://img.shields.io/badge/release-v2.5.0-green.svg)](https://github.com/cinestill-800T/startgg-match-exporter/releases/tag/v2.5.0)
 [![start.gg API](https://img.shields.io/badge/start.gg-GraphQL%20API-ff6694.svg)](https://developer.start.gg/docs/intro/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -31,7 +32,7 @@ Create a token in start.gg Developer Settings and paste it into the app to enabl
 3. Paste a start.gg event URL, for example `https://www.start.gg/tournament/.../event/street-fighter-6`.
 4. Paste your start.gg API token for authenticated official API access, or leave it blank for Public Safe Mode.
 5. Click `Fetch`, or `Refresh` when you want to ignore local cache and fetch fresh data.
-6. Click `Export`.
+6. Paste Watchlist names, then click `Save Markdown Report` or enable `Auto-overwrite Markdown Report`.
 
 The exporter accepts normal event URLs and bracket URLs. It normalizes them to a start.gg event slug internally.
 
@@ -51,11 +52,17 @@ Watchlist outputs:
 - focused JSON for structured processing
 - Markdown report for quick reading
 
+Enable `Auto-overwrite Markdown Report` to write the watchlist Markdown automatically after every successful manual fetch, manual refresh, or background sync. The file is overwritten at:
+
+```text
+~/Downloads/<event-name>-watchlist.md
+```
+
 Matching is mechanical and transparent. The app does not infer nationality, team affiliation, or tournament outcomes beyond the set data returned by start.gg.
 
 ## Analysis Pack
 
-After fetching an event, choose an AI output mode and click `Export` to create a folder in Downloads. Hover the AI output mode selector or the help icon in the app to read the Japanese explanation for each mode.
+After fetching an event, choose a JSON Pack mode and click `Save JSON Pack` to create a folder in Downloads. Hover the output mode selector or the help icon in the app to read the explanation for each mode.
 
 Modes:
 
@@ -72,7 +79,7 @@ Full mode creates five files:
 - `summary.md`: compact human-readable overview
 - `analysis-prompt.md`: guidance for external AI analysis
 
-`Export` is the single analysis-pack action. `raw.json` keeps the complete raw export in Full mode, while `analysis.json` and `matches.jsonl` provide the AI-friendly normalized view. Lightweight modes intentionally do not write `raw.json`, so uploading the output folder to an AI assistant does not accidentally include the full tournament dump. Route data is intentionally marked as partial because start.gg set data does not always include explicit prerequisite-slot graph edges. Use it as a prediction aid, not as a confirmed bracket path.
+`Save JSON Pack` is the analysis-pack action. `raw.json` keeps the complete raw export in Full mode, while `analysis.json` and `matches.jsonl` provide the AI-friendly normalized view. Lightweight modes intentionally do not write `raw.json`, so uploading the output folder to an AI assistant does not accidentally include the full tournament dump. Route data is intentionally marked as partial because start.gg set data does not always include explicit prerequisite-slot graph edges. Use it as a prediction aid, not as a confirmed bracket path.
 
 ## Local Cache
 

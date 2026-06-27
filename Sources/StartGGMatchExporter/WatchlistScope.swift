@@ -5,12 +5,43 @@ struct WatchlistPreview: Equatable, Sendable {
     var matchedQueryCount: Int
     var matchedEntrantCount: Int
     var relatedSetCount: Int
+    var isResolved: Bool
 
-    static let empty = WatchlistPreview(queryCount: 0, matchedQueryCount: 0, matchedEntrantCount: 0, relatedSetCount: 0)
+    static let empty = WatchlistPreview(
+        queryCount: 0,
+        matchedQueryCount: 0,
+        matchedEntrantCount: 0,
+        relatedSetCount: 0,
+        isResolved: false
+    )
+
+    static func draft(queryCount: Int) -> WatchlistPreview {
+        WatchlistPreview(
+            queryCount: queryCount,
+            matchedQueryCount: 0,
+            matchedEntrantCount: 0,
+            relatedSetCount: 0,
+            isResolved: false
+        )
+    }
+
+    static func resolved(from document: WatchlistExportDocument) -> WatchlistPreview {
+        WatchlistPreview(
+            queryCount: document.summary.queryCount,
+            matchedQueryCount: document.summary.matchedQueryCount,
+            matchedEntrantCount: document.summary.matchedEntrantCount,
+            relatedSetCount: document.summary.relatedSetCount,
+            isResolved: true
+        )
+    }
 
     var summaryText: String {
         if queryCount == 0 {
             return "Paste one player name per line."
+        }
+        if !isResolved {
+            let label = queryCount == 1 ? "entry" : "entries"
+            return "\(queryCount) watchlist \(label) ready. Full counts update after fetch or save."
         }
         return "\(matchedQueryCount)/\(queryCount) matched, \(matchedEntrantCount) entrants, \(relatedSetCount) related sets"
     }
@@ -112,15 +143,14 @@ enum WatchlistScopeBuilder {
     ) -> WatchlistPreview {
         let queries = parseQueries(watchlistText)
         guard let document, !queries.isEmpty else {
-            return WatchlistPreview(queryCount: queries.count, matchedQueryCount: 0, matchedEntrantCount: 0, relatedSetCount: 0)
+            return WatchlistPreview.draft(queryCount: queries.count)
         }
         let export = build(from: document, watchlistText: watchlistText, excludedText: excludedText, filter: filter)
-        return WatchlistPreview(
-            queryCount: export.summary.queryCount,
-            matchedQueryCount: export.summary.matchedQueryCount,
-            matchedEntrantCount: export.summary.matchedEntrantCount,
-            relatedSetCount: export.summary.relatedSetCount
-        )
+        return WatchlistPreview.resolved(from: export)
+    }
+
+    static func draftPreview(for watchlistText: String) -> WatchlistPreview {
+        WatchlistPreview.draft(queryCount: parseQueries(watchlistText).count)
     }
 
     static func build(

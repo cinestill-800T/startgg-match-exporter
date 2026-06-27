@@ -225,6 +225,36 @@ struct ContentView: View {
 
             Divider()
 
+            panelTitle("Auto Markdown")
+            HStack(spacing: 10) {
+                Toggle("Auto-overwrite Markdown Report", isOn: $viewModel.autoSaveWatchlistMarkdownEnabled)
+                    .toggleStyle(.switch)
+                    .help("Write the watchlist Markdown report to the same Downloads file after every successful fetch, refresh, or background sync.")
+
+                Spacer()
+
+                if viewModel.isAutoSavingWatchlistMarkdown {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    statusDot(viewModel.autoSaveWatchlistMarkdownEnabled ? .green : .secondary)
+                }
+            }
+
+            Text(viewModel.autoWatchlistMarkdownDestinationText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(viewModel.autoWatchlistMarkdownDestinationText)
+
+            Text(viewModel.autoWatchlistMarkdownStatusText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+
+            Divider()
+
             panelTitle("JSON Pack Mode")
             Picker("Mode", selection: $viewModel.aiExportMode) {
                 ForEach(AIExportMode.allCases) { mode in
@@ -277,7 +307,7 @@ struct ContentView: View {
 
             HStack(spacing: 8) {
                 statusDot(viewModel.lastDocument == nil ? .secondary : .green)
-                Text(viewModel.lastDocument == nil ? "No event data loaded yet." : "\(viewModel.watchlistPreview.relatedSetCount) related watchlist sets")
+                Text(viewModel.watchlistRelatedSetStatusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

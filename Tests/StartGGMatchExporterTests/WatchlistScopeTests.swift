@@ -16,6 +16,16 @@ struct WatchlistScopeTests {
         #expect(queries == ["Tokido", "MenaRD", "Kakeru"])
     }
 
+    @Test("Creates lightweight draft preview without resolving matches")
+    func createsDraftPreview() {
+        let preview = WatchlistScopeBuilder.draftPreview(for: "Tokido\nKakeru")
+
+        #expect(preview.queryCount == 2)
+        #expect(preview.matchedQueryCount == 0)
+        #expect(preview.relatedSetCount == 0)
+        #expect(preview.isResolved == false)
+    }
+
     @Test("Builds focused export for matched players")
     func buildsFocusedExport() {
         let document = sampleDocument()
@@ -76,6 +86,7 @@ struct WatchlistScopeTests {
             filter: WatchlistOutputFilter(includeLiving: false, includeEliminated: false, includeWinners: true, includeLosers: false)
         )
         #expect(filteredPreview.matchedEntrantCount == 1)
+        #expect(filteredPreview.isResolved)
     }
 
     @Test("Matches team prefix queries")
