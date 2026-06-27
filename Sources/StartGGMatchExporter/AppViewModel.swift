@@ -89,37 +89,37 @@ final class AppViewModel: ObservableObject {
     @Published var watchlistText = "" {
         didSet {
             UserDefaults.standard.set(watchlistText, forKey: Self.lastWatchlistTextDefaultsKey)
-            refreshWatchlistPreview()
+            refreshWatchlistDraftPreview()
         }
     }
     @Published var watchlistIncludeLiving = true {
         didSet {
             UserDefaults.standard.set(watchlistIncludeLiving, forKey: Self.watchlistIncludeLivingDefaultsKey)
-            refreshWatchlistPreview()
+            refreshWatchlistDraftPreview()
         }
     }
     @Published var watchlistIncludeEliminated = true {
         didSet {
             UserDefaults.standard.set(watchlistIncludeEliminated, forKey: Self.watchlistIncludeEliminatedDefaultsKey)
-            refreshWatchlistPreview()
+            refreshWatchlistDraftPreview()
         }
     }
     @Published var watchlistIncludeWinners = true {
         didSet {
             UserDefaults.standard.set(watchlistIncludeWinners, forKey: Self.watchlistIncludeWinnersDefaultsKey)
-            refreshWatchlistPreview()
+            refreshWatchlistDraftPreview()
         }
     }
     @Published var watchlistIncludeLosers = true {
         didSet {
             UserDefaults.standard.set(watchlistIncludeLosers, forKey: Self.watchlistIncludeLosersDefaultsKey)
-            refreshWatchlistPreview()
+            refreshWatchlistDraftPreview()
         }
     }
     @Published var excludedWatchlistText = "" {
         didSet {
             UserDefaults.standard.set(excludedWatchlistText, forKey: Self.lastExcludedWatchlistTextDefaultsKey)
-            refreshWatchlistPreview()
+            refreshWatchlistDraftPreview()
         }
     }
     @Published var aiExportMode: AIExportMode = .full {
@@ -137,6 +137,22 @@ final class AppViewModel: ObservableObject {
             }
         }
     }
+    @Published var autoSaveWatchlistMarkdownEnabled = false {
+        didSet {
+            UserDefaults.standard.set(autoSaveWatchlistMarkdownEnabled, forKey: Self.autoSaveWatchlistMarkdownDefaultsKey)
+            if autoSaveWatchlistMarkdownEnabled {
+                autoWatchlistMarkdownMessage = "Auto Markdown will save after each update."
+                if let lastDocument {
+                    autoSaveWatchlistMarkdownIfNeeded(for: lastDocument, reason: "Auto Markdown enabled")
+                }
+            } else {
+                autoWatchlistMarkdownTask?.cancel()
+                autoWatchlistMarkdownTask = nil
+                isAutoSavingWatchlistMarkdown = false
+                autoWatchlistMarkdownMessage = "Auto Markdown is off."
+            }
+        }
+    }
     @Published private(set) var isBackgroundSyncing = false
     @Published private(set) var backgroundSyncMessage = "Waiting for a saved event URL."
     @Published private(set) var lastBackgroundSyncAt: Date?
@@ -146,9 +162,15 @@ final class AppViewModel: ObservableObject {
     @Published var settingsDraft = SettingsDraft(configuration: .defaultConfiguration)
     @Published private(set) var settingsMessage = ""
     @Published private(set) var watchlistPreview = WatchlistPreview.empty
+    @Published private(set) var isSavingOutput = false
+    @Published private(set) var isAutoSavingWatchlistMarkdown = false
+    @Published private(set) var autoWatchlistMarkdownMessage = "Auto Markdown is off."
+    @Published private(set) var autoWatchlistMarkdownURL: URL?
 
     private var currentTask: Task<Void, Never>?
     private var backgroundSyncTask: Task<Void, Never>?
+    private var autoWatchlistMarkdownTask: Task<Void, Never>?
+    private var autoWatchlistMarkdownSaveID = UUID()
     private var autoFetchIntervalMinutes = ExportConfiguration.defaultAutoFetchIntervalMinutes
     private static let lastEventURLDefaultsKey = "lastEventURL"
     private static let lastWatchlistTextDefaultsKey = "lastWatchlistText"
@@ -159,6 +181,7 @@ final class AppViewModel: ObservableObject {
     private static let lastExcludedWatchlistTextDefaultsKey = "lastExcludedWatchlistText"
     private static let aiExportModeDefaultsKey = "aiExportMode"
     private static let autoRefreshEnabledDefaultsKey = "autoRefreshEnabled"
+    private static let autoSaveWatchlistMarkdownDefaultsKey = "autoSaveWatchlistMarkdown"
 
     init() {
         token = (try? KeychainTokenStore.load()) ?? ""
@@ -174,11 +197,16 @@ final class AppViewModel: ObservableObject {
             aiExportMode = mode
         }
         autoRefreshEnabled = UserDefaults.standard.object(forKey: Self.autoRefreshEnabledDefaultsKey) as? Bool ?? true
+        autoSaveWatchlistMarkdownEnabled = UserDefaults.standard.object(forKey: Self.autoSaveWatchlistMarkdownDefaultsKey) as? Bool ?? false
+        autoWatchlistMarkdownMessage = autoSaveWatchlistMarkdownEnabled
+            ? "Auto Markdown will save after each update."
+            : "Auto Markdown is off."
         loadRuntimeConfiguration()
     }
 
     var canStart: Bool {
         !isWorking &&
+            !isSavingOutput &&
             !eventURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
@@ -234,7 +262,8 @@ final class AppViewModel: ObservableObject {
         lastDocument != nil &&
             !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             watchlistExportFilter.isEnabled &&
-            !isWorking
+            !isWorking &&
+            !isSavingOutput
     }
 
     var watchlistExportFilter: WatchlistOutputFilter {
@@ -250,14 +279,48 @@ final class AppViewModel: ObservableObject {
         watchlistExportFilter.isEnabled ? nil : "Select at least one output filter."
     }
 
+    var autoWatchlistMarkdownStatusText: String {
+        if isAutoSavingWatchlistMarkdown {
+            return "Saving Markdown..."
+        }
+        return autoWatchlistMarkdownMessage
+    }
+
+    var autoWatchlistMarkdownDestinationText: String {
+        guard autoSaveWatchlistMarkdownEnabled else {
+            return "Off"
+        }
+        guard let lastDocument else {
+            return "Downloads after event data loads"
+        }
+        guard let url = autoWatchlistMarkdownURL(for: lastDocument) else {
+            return "Downloads folder unavailable"
+        }
+        return "Downloads/\(url.lastPathComponent)"
+    }
+
     var canSaveAnalysisPacket: Bool {
-        guard lastDocument != nil, !isWorking else {
+        guard lastDocument != nil, !isWorking, !isSavingOutput else {
             return false
         }
         if aiExportMode == .watchlistFocus {
             return !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return true
+    }
+
+    var watchlistRelatedSetStatusText: String {
+        guard lastDocument != nil else {
+            return "No event data loaded yet."
+        }
+        guard watchlistPreview.queryCount > 0 else {
+            return "No watchlist names entered."
+        }
+        if watchlistPreview.isResolved {
+            return "\(watchlistPreview.relatedSetCount) related watchlist sets"
+        }
+        let label = watchlistPreview.queryCount == 1 ? "entry" : "entries"
+        return "\(watchlistPreview.queryCount) watchlist \(label) ready"
     }
 
     var aiExportModeHelpText: String {
@@ -382,14 +445,33 @@ final class AppViewModel: ObservableObject {
 
             do {
                 let document = try await service.export(from: inputURL, token: inputToken, cachedDocument: cachedDocument)
+                let watchlistSnapshot = await MainActor.run {
+                    (
+                        self.watchlistText,
+                        self.excludedWatchlistText,
+                        self.watchlistExportFilter
+                    )
+                }
+                let watchlistPreview = await Task.detached(priority: .utility) {
+                    Self.watchlistPreview(
+                        for: document,
+                        watchlistText: watchlistSnapshot.0,
+                        excludedWatchlistText: watchlistSnapshot.1,
+                        filter: watchlistSnapshot.2
+                    )
+                }.value
                 await MainActor.run {
                     let didSaveCache = ExportCache.save(document)
-                    self.apply(document: document, mode: mode)
+                    self.apply(document: document, mode: mode, precomputedWatchlistPreview: watchlistPreview)
                     self.progressMessage = "Fetched \(document.summary.setCount) sets."
                     self.appendLog(didSaveCache ? "Saved cache." : "Cache save skipped. Export data is available in this session.")
                     if !self.watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         self.appendLog("Watchlist: \(self.watchlistPreview.summaryText)")
                     }
+                    self.autoSaveWatchlistMarkdownIfNeeded(
+                        for: document,
+                        reason: forceRefresh ? "Manual refresh" : "Manual fetch"
+                    )
                 }
             } catch is CancellationError {
                 await MainActor.run {
@@ -443,24 +525,41 @@ final class AppViewModel: ObservableObject {
             return
         }
 
-        do {
-            let eventName = sanitizedFileName(lastDocument.event.name ?? "startgg-event")
-            let timestamp = timestampForFolderName()
-            let folderURL = uniqueFolderURL(
-                baseURL: downloads.appendingPathComponent(
-                    "\(eventName)-analysis-\(aiExportMode.folderNameComponent)-\(timestamp)",
-                    isDirectory: true
-                )
+        let eventName = sanitizedFileName(lastDocument.event.name ?? "startgg-event")
+        let timestamp = timestampForFolderName()
+        let mode = aiExportMode
+        let folderURL = uniqueFolderURL(
+            baseURL: downloads.appendingPathComponent(
+                "\(eventName)-analysis-\(mode.folderNameComponent)-\(timestamp)",
+                isDirectory: true
             )
-            let options = AIExportOptions(mode: aiExportMode, watchlistText: watchlistText, excludedWatchlistText: excludedWatchlistText)
-            let files = try AIExportBuilder.writePacket(document: lastDocument, to: folderURL, options: options)
-            lastOutputURL = folderURL
-            appendLog("Saved analysis pack.")
-            appendLog("Output mode: \(aiExportMode.title)")
-            appendLog("Analysis files: \(files.count)")
-            NSWorkspace.shared.activateFileViewerSelecting([folderURL])
-        } catch {
-            appendLog("Analysis pack save failed: \(error.localizedDescription)")
+        )
+        let options = AIExportOptions(mode: mode, watchlistText: watchlistText, excludedWatchlistText: excludedWatchlistText)
+
+        isSavingOutput = true
+        progressMessage = "Saving analysis pack..."
+
+        Task { [weak self] in
+            do {
+                let files = try await Task.detached(priority: .userInitiated) {
+                    try AIExportBuilder.writePacket(document: lastDocument, to: folderURL, options: options)
+                }.value
+                await MainActor.run {
+                    self?.isSavingOutput = false
+                    self?.lastOutputURL = folderURL
+                    self?.progressMessage = "Saved analysis pack."
+                    self?.appendLog("Saved analysis pack.")
+                    self?.appendLog("Output mode: \(mode.title)")
+                    self?.appendLog("Analysis files: \(files.count)")
+                    NSWorkspace.shared.activateFileViewerSelecting([folderURL])
+                }
+            } catch {
+                await MainActor.run {
+                    self?.isSavingOutput = false
+                    self?.progressMessage = "Analysis pack save failed."
+                    self?.appendLog("Analysis pack save failed: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
@@ -469,7 +568,7 @@ final class AppViewModel: ObservableObject {
             appendLog("Select at least one output filter.")
             return
         }
-        guard let scope = makeWatchlistScope() else {
+        guard let lastDocument, !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             appendLog("Fetch data and paste watchlist names before saving a focused report.")
             return
         }
@@ -478,7 +577,7 @@ final class AppViewModel: ObservableObject {
         panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
         panel.canCreateDirectories = true
         panel.directoryURL = downloadsDirectory()
-        let name = sanitizedFileName(lastDocument?.event.name ?? "startgg-event")
+        let name = sanitizedFileName(lastDocument.event.name ?? "startgg-event")
         panel.nameFieldStringValue = "\(name)-watchlist.md"
 
         guard panel.runModal() == .OK, let url = panel.url else {
@@ -486,12 +585,37 @@ final class AppViewModel: ObservableObject {
             return
         }
 
-        do {
-            let markdown = WatchlistScopeBuilder.markdown(from: scope)
-            try Data(markdown.utf8).write(to: url, options: .atomic)
-            appendLog("Saved watchlist Markdown.")
-        } catch {
-            appendLog("Watchlist Markdown save failed: \(error.localizedDescription)")
+        let watchlistText = watchlistText
+        let excludedWatchlistText = excludedWatchlistText
+        let filter = watchlistExportFilter
+
+        isSavingOutput = true
+        progressMessage = "Saving watchlist Markdown..."
+
+        Task { [weak self] in
+            do {
+                let preview = try await Task.detached(priority: .userInitiated) {
+                    let scope = WatchlistScopeBuilder.build(
+                        from: lastDocument,
+                        watchlistText: watchlistText,
+                        excludedText: excludedWatchlistText,
+                        filter: filter
+                    )
+                    return try Self.writeWatchlistMarkdown(scope: scope, to: url)
+                }.value
+                await MainActor.run {
+                    self?.isSavingOutput = false
+                    self?.watchlistPreview = preview
+                    self?.progressMessage = "Saved watchlist Markdown."
+                    self?.appendLog("Saved watchlist Markdown.")
+                }
+            } catch {
+                await MainActor.run {
+                    self?.isSavingOutput = false
+                    self?.progressMessage = "Watchlist Markdown save failed."
+                    self?.appendLog("Watchlist Markdown save failed: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
@@ -559,12 +683,7 @@ final class AppViewModel: ObservableObject {
         totalSetCount = document.summary.setCount
         entrantCount = document.summary.entrantCount
         bracketSummaryText = precomputedBracketSummary ?? Self.bracketSummaryText(for: document)
-        watchlistPreview = precomputedWatchlistPreview ?? Self.watchlistPreview(
-            for: document,
-            watchlistText: watchlistText,
-            excludedWatchlistText: excludedWatchlistText,
-            filter: watchlistExportFilter
-        )
+        watchlistPreview = precomputedWatchlistPreview ?? Self.watchlistDraftPreview(for: watchlistText)
         appendLog("Event: \(document.event.name ?? document.event.id.value)")
         appendLog("Mode: \(mode.title)")
         appendLog("Entrants: \(document.summary.entrantCount)")
@@ -573,6 +692,80 @@ final class AppViewModel: ObservableObject {
         appendLog("Completed sets: \(document.summary.completedSetCount)")
         appendLog("Pending sets: \(document.summary.pendingSetCount)")
         appendLog("Started/called sets: \(document.summary.startedSetCount)")
+    }
+
+    private func autoSaveWatchlistMarkdownIfNeeded(for document: ExportDocument, reason: String) {
+        guard autoSaveWatchlistMarkdownEnabled else {
+            return
+        }
+        guard watchlistExportFilter.isEnabled else {
+            autoWatchlistMarkdownMessage = "Auto Markdown skipped: select at least one output filter."
+            appendLog("Auto Markdown skipped: select at least one output filter.")
+            return
+        }
+
+        let watchlistText = watchlistText
+        guard !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            autoWatchlistMarkdownMessage = "Auto Markdown waiting for Watchlist names."
+            return
+        }
+        guard let url = autoWatchlistMarkdownURL(for: document) else {
+            autoWatchlistMarkdownMessage = "Auto Markdown skipped: Downloads folder is unavailable."
+            appendLog("Auto Markdown skipped: Downloads folder is unavailable.")
+            return
+        }
+
+        let excludedWatchlistText = excludedWatchlistText
+        let filter = watchlistExportFilter
+        let saveID = UUID()
+        autoWatchlistMarkdownSaveID = saveID
+        autoWatchlistMarkdownTask?.cancel()
+        isAutoSavingWatchlistMarkdown = true
+        autoWatchlistMarkdownMessage = "Auto Markdown saving after \(reason.lowercased())..."
+
+        autoWatchlistMarkdownTask = Task { [weak self] in
+            do {
+                let preview = try await Task.detached(priority: .utility) {
+                    try Task.checkCancellation()
+                    let scope = WatchlistScopeBuilder.build(
+                        from: document,
+                        watchlistText: watchlistText,
+                        excludedText: excludedWatchlistText,
+                        filter: filter
+                    )
+                    return try Self.writeWatchlistMarkdown(scope: scope, to: url)
+                }.value
+                await MainActor.run {
+                    guard self?.autoWatchlistMarkdownSaveID == saveID else {
+                        return
+                    }
+                    self?.isAutoSavingWatchlistMarkdown = false
+                    self?.autoWatchlistMarkdownURL = url
+                    self?.watchlistPreview = preview
+                    self?.autoWatchlistMarkdownMessage = "Auto Markdown saved: \(url.lastPathComponent)"
+                    self?.appendLog("Auto-saved watchlist Markdown: \(url.path)")
+                    self?.autoWatchlistMarkdownTask = nil
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    guard self?.autoWatchlistMarkdownSaveID == saveID else {
+                        return
+                    }
+                    self?.isAutoSavingWatchlistMarkdown = false
+                    self?.autoWatchlistMarkdownTask = nil
+                }
+            } catch {
+                await MainActor.run {
+                    guard self?.autoWatchlistMarkdownSaveID == saveID else {
+                        return
+                    }
+                    self?.isAutoSavingWatchlistMarkdown = false
+                    self?.autoWatchlistMarkdownMessage = "Auto Markdown save failed."
+                    self?.appendLog("Auto Markdown save failed: \(error.localizedDescription)")
+                    self?.autoWatchlistMarkdownTask = nil
+                }
+            }
+        }
     }
 
     private func scheduleNextBackgroundSync() {
@@ -642,6 +835,7 @@ final class AppViewModel: ObservableObject {
             backgroundSyncMessage = result.didSaveCache ? "Updated \(updateText)." : "Updated \(updateText); cache save skipped."
             lastBackgroundSyncAt = Date()
             recordBackgroundSyncEvent("Updated \(document.summary.setCount) sets")
+            autoSaveWatchlistMarkdownIfNeeded(for: document, reason: reason)
         } else if let errorMessage = result.errorMessage {
             if lastDocument == nil, let cachedDocument = result.cachedDocument {
                 apply(document: cachedDocument, mode: snapshot.mode)
@@ -670,7 +864,7 @@ final class AppViewModel: ObservableObject {
         totalSetCount = 0
         entrantCount = 0
         bracketSummaryText = nil
-        refreshWatchlistPreview()
+        refreshWatchlistDraftPreview()
     }
 
     private var backgroundRefreshInterval: TimeInterval {
@@ -694,13 +888,8 @@ final class AppViewModel: ObservableObject {
         startBackgroundSync()
     }
 
-    private func refreshWatchlistPreview() {
-        watchlistPreview = Self.watchlistPreview(
-            for: lastDocument,
-            watchlistText: watchlistText,
-            excludedWatchlistText: excludedWatchlistText,
-            filter: watchlistExportFilter
-        )
+    private func refreshWatchlistDraftPreview() {
+        watchlistPreview = Self.watchlistDraftPreview(for: watchlistText)
     }
 
     nonisolated private static func performBackgroundFetch(
@@ -790,16 +979,21 @@ final class AppViewModel: ObservableObject {
         )
     }
 
-    private func makeWatchlistScope() -> WatchlistExportDocument? {
-        guard let lastDocument, !watchlistText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return nil
-        }
-        return WatchlistScopeBuilder.build(
-            from: lastDocument,
-            watchlistText: watchlistText,
-            excludedText: excludedWatchlistText,
-            filter: watchlistExportFilter
+    nonisolated private static func watchlistDraftPreview(for watchlistText: String) -> WatchlistPreview {
+        WatchlistScopeBuilder.draftPreview(for: watchlistText)
+    }
+
+    nonisolated private static func writeWatchlistMarkdown(
+        scope: WatchlistExportDocument,
+        to url: URL
+    ) throws -> WatchlistPreview {
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
         )
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+        try Data(markdown.utf8).write(to: url, options: .atomic)
+        return WatchlistPreview.resolved(from: scope)
     }
 
     private func cachedDocument(for inputURL: String, mode: StartGGAPIMode) -> ExportDocument? {
@@ -920,6 +1114,12 @@ final class AppViewModel: ObservableObject {
 
     private func downloadsDirectory() -> URL? {
         FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+    }
+
+    private func autoWatchlistMarkdownURL(for document: ExportDocument) -> URL? {
+        downloadsDirectory()?.appendingPathComponent(
+            "\(sanitizedFileName(document.event.name ?? "startgg-event"))-watchlist.md"
+        )
     }
 
     private func uniqueFolderURL(baseURL: URL) -> URL {
