@@ -115,6 +115,20 @@ struct WatchlistScopeTests {
         #expect(match?.matchedValue == "REJECT")
     }
 
+    @Test("Matches team token inside multi word prefix")
+    func matchesTeamTokenInsideMultiWordPrefix() {
+        let document = multiWordSponsorPrefixDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "REJECT")
+        let names = scope.queries.first { $0.query == "REJECT" }?.matches.compactMap(\.entrant.name) ?? []
+
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(scope.summary.matchedEntrantCount == 2)
+        #expect(names.contains("REJECT | Fuudo"))
+        #expect(names.contains("REJECT Beast | DAIGO"))
+        #expect(scope.queries.first?.matches.first { $0.entrant.name == "REJECT Beast | DAIGO" }?.matchReason == "exact")
+        #expect(scope.queries.first?.matches.first { $0.entrant.name == "REJECT Beast | DAIGO" }?.matchedValue == "REJECT")
+    }
+
     @Test("Matches prefix with pipe spacing variants")
     func matchesPrefixWithPipeSpacingVariants() {
         let document = pipeSpacingDocument()
@@ -857,6 +871,15 @@ struct WatchlistScopeTests {
             entrants: [daigo],
             standings: [],
             phases: []
+        )
+    }
+
+    private func multiWordSponsorPrefixDocument() -> ExportDocument {
+        let fuudo = entrant(id: "1", name: "REJECT | Fuudo", tag: "Fuudo", seed: 1)
+        let daigo = entrant(id: "2", name: "REJECT Beast | DAIGO", tag: "DAIGO", seed: 2)
+        return entrantOnlyDocument(
+            id: "multi-word-sponsor-prefix",
+            entrants: [fuudo, daigo]
         )
     }
 

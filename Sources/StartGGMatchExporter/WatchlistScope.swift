@@ -644,6 +644,7 @@ enum WatchlistScopeBuilder {
 
         values.append(trimmedPrefix)
         values.append(contentsOf: splitPrefixCandidates(from: trimmedPrefix))
+        values.append(contentsOf: prefixTokenCandidates(from: trimmedPrefix))
 
         if let trimmedGamerTag, !trimmedGamerTag.isEmpty {
             values.append("\(trimmedPrefix) \(trimmedGamerTag)")
@@ -660,6 +661,7 @@ enum WatchlistScopeBuilder {
                 if !prefix.isEmpty {
                     candidates.append(prefix)
                     candidates.append(contentsOf: splitPrefixCandidates(from: prefix))
+                    candidates.append(contentsOf: prefixTokenCandidates(from: prefix))
                 }
                 candidates.append(contentsOf: postSeparatorPrefixCandidates(from: parts.dropFirst().joined(separator: separator)))
             }
@@ -672,6 +674,13 @@ enum WatchlistScopeBuilder {
             .split(separator: "/", omittingEmptySubsequences: true)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+    }
+
+    private static func prefixTokenCandidates(from prefix: String) -> [String] {
+        prefix
+            .split(whereSeparator: { $0.isWhitespace })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.count >= 2 }
     }
 
     private static func postSeparatorPrefixCandidates(from value: String) -> [String] {
