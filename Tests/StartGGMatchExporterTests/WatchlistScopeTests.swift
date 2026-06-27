@@ -115,6 +115,34 @@ struct WatchlistScopeTests {
         #expect(match?.matchedValue == "REJECT")
     }
 
+    @Test("Matches team token inside slash-delimited multi word prefix")
+    func matchesTeamTokenInsideSlashDelimitedMultiWordPrefix() {
+        let document = slashDelimitedMultiWordPrefixDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "iXA")
+        let names = scope.queries.first { $0.query == "iXA" }?.matches.compactMap(\.entrant.name) ?? []
+        let acqua = scope.queries.first?.matches.first { $0.entrant.name == "広島TEAM iXA/HT | ACQUA" }
+
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(scope.summary.matchedEntrantCount == 2)
+        #expect(names.contains("広島TEAM iXA/HT | ACQUA"))
+        #expect(names.contains("iXA | Other"))
+        #expect(acqua?.matchReason == "exact")
+        #expect(acqua?.matchedValue == "iXA")
+    }
+
+    @Test("Matches ACQUA with AQUA spelling")
+    func matchesACQUAWithAQUASpelling() {
+        let document = slashDelimitedMultiWordPrefixDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "AQUA")
+        let match = scope.queries.first { $0.query == "AQUA" }?.matches.first
+
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(scope.summary.matchedEntrantCount == 1)
+        #expect(match?.entrant.name == "広島TEAM iXA/HT | ACQUA")
+        #expect(match?.matchReason == "exact")
+        #expect(match?.matchedValue == "AQUA")
+    }
+
     @Test("Matches team token inside multi word prefix")
     func matchesTeamTokenInsideMultiWordPrefix() {
         let document = multiWordSponsorPrefixDocument()
@@ -252,15 +280,36 @@ struct WatchlistScopeTests {
         #expect(markdown.contains("# Street Fighter 6 選手ウォッチレポート"))
         #expect(markdown.contains("## 目次"))
         #expect(markdown.contains("## ウォッチ対象者の直近完了試合"))
+        #expect(markdown.contains("## ウォッチ対象者の現在状況"))
+        #expect(markdown.contains("- [ウォッチ対象者の直近完了試合](#ウォッチ対象者の直近完了試合)"))
+        #expect(markdown.contains("- [ウォッチ対象者の現在状況](#ウォッチ対象者の現在状況)"))
         #expect(markdown.contains("- [概要](#概要)"))
         #expect(markdown.contains("- [検索: Tokido](#検索-tokido)"))
         #expect(markdown.contains("  - [ROHTO Z! Tokido](#rohto-z-tokido)"))
         #expect(!markdown.contains("<a id="))
         #expect(markdown.contains("### ROHTO Z! Tokido\n\n![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-brightgreen) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-blue)"))
         #expect(markdown.contains("| 対象者 | 勝敗 | 相手 | スコア | 文脈 |"))
+        #expect(markdown.contains("| 選手 | 状況 | 選手 | 状況 | 選手 | 状況 |"))
+        #expect(markdown.contains("| ROHTO Z! Tokido | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-brightgreen) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-blue) |  |  |  |  |"))
         #expect(markdown.contains("| 状況 | 場所 | ラウンド | 選手 | スコア | 相手 | 勝敗 |"))
         #expect(markdown.contains("| 未開始 | Round 1 / A101 | Winners Round 2 | ROHTO Z! Tokido |  | IBUSHIGIN \\| Kakeru | 予定 |"))
         #expect(markdown.contains("| 終了 | Round 1 / A101 | Winners Round 1 | ROHTO Z! Tokido | 2 - 0 | Punk | 勝ち |"))
+    }
+
+    @Test("Shows current status summary with escaped entrant names")
+    func showsCurrentStatusSummaryWithEscapedEntrantNames() {
+        let scope = WatchlistScopeBuilder.build(from: sampleDocument(), watchlistText: "Tokido\nKakeru")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+        let statusSection = markdown.section(named: "ウォッチ対象者の現在状況")
+        let dataRow = statusSection
+            .split(separator: "\n")
+            .map(String.init)
+            .first { $0.contains("ROHTO Z! Tokido") } ?? ""
+
+        #expect(statusSection.contains("| 選手 | 状況 | 選手 | 状況 | 選手 | 状況 |"))
+        #expect(dataRow.contains("| ROHTO Z! Tokido | ![状態: 生存中]"))
+        #expect(dataRow.contains("| IBUSHIGIN \\| Kakeru | ![状態: 生存中]"))
+        #expect(dataRow.contains("![ブラケット: Winners]"))
     }
 
     @Test("Shows badges for losers-side active matches")
@@ -362,7 +411,7 @@ struct WatchlistScopeTests {
     func showsRecentCompletedMatchesSummary() {
         let scope = WatchlistScopeBuilder.build(from: recentMatchesDocument(), watchlistText: "Tokido\nKakeru")
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
-        let summarySection = markdown.components(separatedBy: "## 概要").first ?? ""
+        let summarySection = markdown.section(named: "ウォッチ対象者の直近完了試合")
         let summaryLines = summarySection.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         let dataRows = summaryLines.filter { $0.hasPrefix("| ") && !$0.contains("対象者 |") }
 
@@ -874,6 +923,15 @@ struct WatchlistScopeTests {
         )
     }
 
+    private func slashDelimitedMultiWordPrefixDocument() -> ExportDocument {
+        let acqua = entrant(id: "1", name: "広島TEAM iXA/HT | ACQUA", tag: "ACQUA", seed: 1)
+        let other = entrant(id: "2", name: "iXA | Other", tag: "Other", seed: 2)
+        return entrantOnlyDocument(
+            id: "slash-delimited-multi-word-prefix",
+            entrants: [acqua, other]
+        )
+    }
+
     private func multiWordSponsorPrefixDocument() -> ExportDocument {
         let fuudo = entrant(id: "1", name: "REJECT | Fuudo", tag: "Fuudo", seed: 1)
         let daigo = entrant(id: "2", name: "REJECT Beast | DAIGO", tag: "DAIGO", seed: 2)
@@ -978,5 +1036,18 @@ struct WatchlistScopeTests {
                 stats: SlotStats(score: ScoreValue(value: FlexibleDouble(score)))
             )
         )
+    }
+}
+
+private extension String {
+    func section(named heading: String) -> String {
+        let marker = "## \(heading)"
+        guard let startRange = range(of: marker) else {
+            return ""
+        }
+        if let nextRange = self[startRange.upperBound...].range(of: "\n## ") {
+            return String(self[startRange.lowerBound..<nextRange.lowerBound])
+        }
+        return String(self[startRange.lowerBound...])
     }
 }
