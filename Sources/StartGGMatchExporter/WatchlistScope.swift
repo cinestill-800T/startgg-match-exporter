@@ -205,6 +205,8 @@ enum WatchlistScopeBuilder {
         lines.append("")
         appendRecentCompletedMatchSummary(for: document, to: &lines)
         lines.append("")
+        appendCurrentStatusSummary(for: document, to: &lines)
+        lines.append("")
         lines.append("## 概要")
         lines.append("")
         lines.append("- 作成日時: \(document.generatedAt)")
@@ -302,9 +304,61 @@ enum WatchlistScopeBuilder {
         }
     }
 
+    private static func appendCurrentStatusSummary(for document: WatchlistExportDocument, to lines: inout [String]) {
+        let reports = currentStatusReports(from: document)
+
+        lines.append("## ウォッチ対象者の現在状況")
+        lines.append("")
+
+        guard !reports.isEmpty else {
+            lines.append("ウォッチ対象者の現在状況はありません。")
+            return
+        }
+
+        let columnPairCount = 3
+        let headerCells = (0..<columnPairCount).flatMap { _ in ["選手", "状況"] }
+        let dividerCells = Array(repeating: "---", count: headerCells.count)
+        lines.append(markdownTableRow(headerCells))
+        lines.append(markdownTableRow(dividerCells))
+
+        for startIndex in stride(from: 0, to: reports.count, by: columnPairCount) {
+            var cells: [String] = []
+            for offset in 0..<columnPairCount {
+                let index = startIndex + offset
+                if reports.indices.contains(index) {
+                    let report = reports[index]
+                    cells.append(markdownCell(report.entrant.name ?? report.entrant.id.value))
+                    cells.append(statusBadgesLine(for: report))
+                } else {
+                    cells.append("")
+                    cells.append("")
+                }
+            }
+            lines.append(markdownTableRow(cells))
+        }
+    }
+
+    private static func currentStatusReports(from document: WatchlistExportDocument) -> [WatchlistEntrantReport] {
+        var reports: [WatchlistEntrantReport] = []
+        var seenEntrantIds = Set<FlexibleID>()
+
+        for query in document.queries {
+            for report in query.matches where !seenEntrantIds.contains(report.entrant.id) {
+                seenEntrantIds.insert(report.entrant.id)
+                reports.append(report)
+            }
+        }
+
+        return reports
+    }
+
     private static func appendTableOfContents(for document: WatchlistExportDocument, to lines: inout [String]) {
         lines.append("## 目次")
         lines.append("")
+        let recentSummaryHeading = "ウォッチ対象者の直近完了試合"
+        let currentStatusHeading = "ウォッチ対象者の現在状況"
+        lines.append("- [\(markdownLinkText(recentSummaryHeading))](#\(markdownHeadingAnchor(recentSummaryHeading)))")
+        lines.append("- [\(markdownLinkText(currentStatusHeading))](#\(markdownHeadingAnchor(currentStatusHeading)))")
         lines.append("- [概要](#概要)")
 
         for query in document.queries {
@@ -619,6 +673,7 @@ enum WatchlistScopeBuilder {
         var values: [String] = []
         if let name = entrant.name {
             values.append(name)
+            values.append(contentsOf: spellingVariantCandidates(from: name))
             values.append(contentsOf: prefixCandidates(from: name))
         }
         for participant in entrant.participants ?? [] {
@@ -636,6 +691,7 @@ enum WatchlistScopeBuilder {
 
         if let trimmedGamerTag, !trimmedGamerTag.isEmpty {
             values.append(trimmedGamerTag)
+            values.append(contentsOf: spellingVariantCandidates(from: trimmedGamerTag))
         }
 
         guard let trimmedPrefix, !trimmedPrefix.isEmpty else {
@@ -645,6 +701,7 @@ enum WatchlistScopeBuilder {
         values.append(trimmedPrefix)
         values.append(contentsOf: splitPrefixCandidates(from: trimmedPrefix))
         values.append(contentsOf: prefixTokenCandidates(from: trimmedPrefix))
+        values.append(contentsOf: splitPrefixCandidates(from: trimmedPrefix).flatMap(prefixTokenCandidates))
 
         if let trimmedGamerTag, !trimmedGamerTag.isEmpty {
             values.append("\(trimmedPrefix) \(trimmedGamerTag)")
@@ -662,6 +719,7 @@ enum WatchlistScopeBuilder {
                     candidates.append(prefix)
                     candidates.append(contentsOf: splitPrefixCandidates(from: prefix))
                     candidates.append(contentsOf: prefixTokenCandidates(from: prefix))
+                    candidates.append(contentsOf: splitPrefixCandidates(from: prefix).flatMap(prefixTokenCandidates))
                 }
                 candidates.append(contentsOf: postSeparatorPrefixCandidates(from: parts.dropFirst().joined(separator: separator)))
             }
@@ -678,9 +736,21 @@ enum WatchlistScopeBuilder {
 
     private static func prefixTokenCandidates(from prefix: String) -> [String] {
         prefix
-            .split(whereSeparator: { $0.isWhitespace })
+            .split(whereSeparator: { $0.isWhitespace || $0 == "/" })
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { $0.count >= 2 }
+    }
+
+    private static func spellingVariantCandidates(from value: String) -> [String] {
+        let acquaVariant = value.replacingOccurrences(
+            of: "acqua",
+            with: "AQUA",
+            options: [.caseInsensitive, .diacriticInsensitive]
+        )
+        guard acquaVariant != value else {
+            return []
+        }
+        return [acquaVariant]
     }
 
     private static func postSeparatorPrefixCandidates(from value: String) -> [String] {
@@ -771,6 +841,10 @@ enum WatchlistScopeBuilder {
         value
             .replacingOccurrences(of: "|", with: "\\|")
             .replacingOccurrences(of: "\n", with: " ")
+    }
+
+    private static func markdownTableRow(_ cells: [String]) -> String {
+        "| \(cells.joined(separator: " | ")) |"
     }
 
     private static func appendMatchTable(_ contexts: [WatchlistSetContext], to lines: inout [String]) {
