@@ -578,6 +578,8 @@ enum WatchlistScopeBuilder {
         guard !normalizedQuery.isEmpty else {
             return nil
         }
+        let canUseCompactQuery = !compactQuery.isEmpty
+        let canUsePartialMatch = compactQuery.count >= 3
 
         let candidates = candidateValues(for: entrant)
         var best: EntrantMatch?
@@ -591,13 +593,13 @@ enum WatchlistScopeBuilder {
             if normalizedCandidate == normalizedQuery {
                 score = 100
                 reason = "exact"
-            } else if compactCandidate == compactQuery {
+            } else if canUseCompactQuery && compactCandidate == compactQuery {
                 score = 98
                 reason = "compact exact"
-            } else if normalizedCandidate.contains(normalizedQuery) {
+            } else if canUsePartialMatch && normalizedCandidate.contains(normalizedQuery) {
                 score = 86
                 reason = "contains"
-            } else if compactCandidate.contains(compactQuery) {
+            } else if canUsePartialMatch && compactCandidate.contains(compactQuery) {
                 score = 84
                 reason = "compact contains"
             } else {
@@ -620,37 +622,68 @@ enum WatchlistScopeBuilder {
             values.append(contentsOf: prefixCandidates(from: name))
         }
         for participant in entrant.participants ?? [] {
-            if let gamerTag = participant.gamerTag {
-                values.append(gamerTag)
-                if let prefix = participant.prefix, !prefix.isEmpty {
-                    values.append(prefix)
-                    values.append("\(prefix) \(gamerTag)")
-                    values.append("\(prefix) | \(gamerTag)")
-                }
-            }
+            appendCandidateValues(prefix: participant.prefix, gamerTag: participant.gamerTag, to: &values)
             if let player = participant.player {
-                if let gamerTag = player.gamerTag {
-                    values.append(gamerTag)
-                    if let prefix = player.prefix, !prefix.isEmpty {
-                        values.append(prefix)
-                        values.append("\(prefix) \(gamerTag)")
-                        values.append("\(prefix) | \(gamerTag)")
-                    }
-                }
+                appendCandidateValues(prefix: player.prefix, gamerTag: player.gamerTag, to: &values)
             }
         }
         return Array(Set(values))
     }
 
+    private static func appendCandidateValues(prefix: String?, gamerTag: String?, to values: inout [String]) {
+        let trimmedPrefix = prefix?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedGamerTag = gamerTag?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let trimmedGamerTag, !trimmedGamerTag.isEmpty {
+            values.append(trimmedGamerTag)
+        }
+
+        guard let trimmedPrefix, !trimmedPrefix.isEmpty else {
+            return
+        }
+
+        values.append(trimmedPrefix)
+        values.append(contentsOf: splitPrefixCandidates(from: trimmedPrefix))
+
+        if let trimmedGamerTag, !trimmedGamerTag.isEmpty {
+            values.append("\(trimmedPrefix) \(trimmedGamerTag)")
+            values.append("\(trimmedPrefix) | \(trimmedGamerTag)")
+        }
+    }
+
     private static func prefixCandidates(from name: String) -> [String] {
-        for separator in [" | ", "｜"] {
+        var candidates: [String] = []
+        for separator in ["|", "｜"] {
             let parts = name.components(separatedBy: separator)
             if parts.count > 1 {
                 let prefix = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
-                return prefix.isEmpty ? [] : [prefix]
+                if !prefix.isEmpty {
+                    candidates.append(prefix)
+                    candidates.append(contentsOf: splitPrefixCandidates(from: prefix))
+                }
+                candidates.append(contentsOf: postSeparatorPrefixCandidates(from: parts.dropFirst().joined(separator: separator)))
             }
         }
-        return []
+        return candidates
+    }
+
+    private static func splitPrefixCandidates(from prefix: String) -> [String] {
+        prefix
+            .split(separator: "/", omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private static func postSeparatorPrefixCandidates(from value: String) -> [String] {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return []
+        }
+        let tokens = trimmed.split(whereSeparator: { $0.isWhitespace || $0 == "/" })
+        guard let firstToken = tokens.first.map(String.init), firstToken.count >= 2 else {
+            return []
+        }
+        return [firstToken, trimmed]
     }
 
     private static func report(

@@ -90,6 +90,79 @@ struct WatchlistScopeTests {
         #expect(match?.matchedValue == "DFM")
     }
 
+    @Test("Matches team token after sponsor prefix")
+    func matchesTeamTokenAfterSponsorPrefix() {
+        let document = sponsorPrefixDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "CR")
+        let names = scope.queries.first { $0.query == "CR" }?.matches.compactMap(\.entrant.name) ?? []
+
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(scope.summary.matchedEntrantCount == 2)
+        #expect(names.contains("CR | Dogura"))
+        #expect(names.contains("Red Bull | CR Bonchan"))
+    }
+
+    @Test("Matches team token inside slash-separated prefix")
+    func matchesTeamTokenInsideSlashSeparatedPrefix() {
+        let document = slashSeparatedSponsorPrefixDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "REJECT")
+        let match = scope.queries.first { $0.query == "REJECT" }?.matches.first
+
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(scope.summary.matchedEntrantCount == 1)
+        #expect(match?.entrant.name == "REJECT/RC | ウメハラ/Daigo")
+        #expect(match?.matchReason == "exact")
+        #expect(match?.matchedValue == "REJECT")
+    }
+
+    @Test("Matches prefix with pipe spacing variants")
+    func matchesPrefixWithPipeSpacingVariants() {
+        let document = pipeSpacingDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "CR\nREJECT")
+
+        let crNames = scope.queries.first { $0.query == "CR" }?.matches.compactMap(\.entrant.name) ?? []
+        let rejectNames = scope.queries.first { $0.query == "REJECT" }?.matches.compactMap(\.entrant.name) ?? []
+
+        #expect(scope.summary.matchedQueryCount == 2)
+        #expect(crNames.contains("CR|Dogura"))
+        #expect(rejectNames.contains("REJECT ｜ RC | ウメハラ/Daigo"))
+    }
+
+    @Test("Matches participant prefix when gamer tag is missing")
+    func matchesParticipantPrefixWithoutGamerTag() {
+        let document = prefixOnlyParticipantDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "CR")
+        let match = scope.queries.first { $0.query == "CR" }?.matches.first
+
+        #expect(scope.summary.matchedQueryCount == 1)
+        #expect(match?.entrant.name == "Dogura")
+        #expect(match?.matchReason == "exact")
+        #expect(match?.matchedValue == "CR")
+    }
+
+    @Test("Limits two character queries to exact candidate matches")
+    func limitsTwoCharacterQueriesToExactCandidateMatches() {
+        let document = shortQueryDocument()
+        let crScope = WatchlistScopeBuilder.build(from: document, watchlistText: "CR")
+        let rcScope = WatchlistScopeBuilder.build(from: document, watchlistText: "RC")
+        let reScope = WatchlistScopeBuilder.build(from: document, watchlistText: "Re")
+
+        #expect(crScope.summary.matchedEntrantCount == 1)
+        #expect(crScope.queries.first?.matches.first?.entrant.name == "Red Bull | CR Bonchan")
+        #expect(rcScope.summary.matchedEntrantCount == 1)
+        #expect(rcScope.queries.first?.matches.first?.entrant.name == "REJECT/RC | ウメハラ/Daigo")
+        #expect(reScope.summary.matchedEntrantCount == 0)
+    }
+
+    @Test("Ignores punctuation only queries")
+    func ignoresPunctuationOnlyQueries() {
+        let document = sampleDocument()
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "!!!")
+
+        #expect(scope.summary.matchedQueryCount == 0)
+        #expect(scope.summary.matchedEntrantCount == 0)
+    }
+
     @Test("Matches short partial queries")
     func matchesShortPartialQueries() {
         let document = shortPrefixDocument()
@@ -98,7 +171,7 @@ struct WatchlistScopeTests {
         let match = scope.queries.first { $0.query == "G8S" }?.matches.first
         #expect(scope.summary.matchedQueryCount == 1)
         #expect(match?.entrant.name == "G8S/PWS | Alpha")
-        #expect(match?.matchReason == "contains")
+        #expect(match?.matchReason == "exact")
     }
 
     @Test("Matches compact-only short queries")
@@ -111,7 +184,7 @@ struct WatchlistScopeTests {
 
         #expect(scope.summary.matchedQueryCount == 1)
         #expect(match?.entrant.name == "G-8-S / PWS | Alpha")
-        #expect(match?.matchReason == "compact contains")
+        #expect(match?.matchReason == "compact exact")
     }
 
     @Test("Excludes watchlist matches by excluded words")
@@ -703,6 +776,155 @@ struct WatchlistScopeTests {
             ),
             event: event,
             entrants: [g8s],
+            standings: [],
+            phases: []
+        )
+    }
+
+    private func sponsorPrefixDocument() -> ExportDocument {
+        let dogura = entrant(id: "1", name: "CR | Dogura", tag: "Dogura", seed: 1)
+        let bonchan = entrant(id: "2", name: "Red Bull | CR Bonchan", tag: "Bonchan", seed: 2)
+
+        let event = EventSummary(
+            id: FlexibleID("e-sponsor-prefix"),
+            name: "Street Fighter 6",
+            slug: "tournament/test/event/street-fighter-6",
+            numEntrants: 2,
+            type: 1,
+            videogame: nil,
+            tournament: TournamentSummary(id: FlexibleID("t-sponsor-prefix"), name: "Test", slug: "tournament/test", timezone: "UTC"),
+            phases: []
+        )
+
+        return ExportDocument(
+            schemaVersion: 1,
+            fetchedAt: "2026-05-23T00:00:00Z",
+            source: ExportSource(
+                inputURL: "https://www.start.gg/tournament/test/event/street-fighter-6",
+                eventSlug: "tournament/test/event/street-fighter-6",
+                apiEndpoint: "https://api.start.gg/gql/alpha",
+                apiMode: StartGGAPIMode.authenticatedFast.rawValue
+            ),
+            summary: ExportSummary(
+                phaseCount: 0,
+                entrantCount: 2,
+                standingCount: 0,
+                setCount: 0,
+                completedSetCount: 0,
+                pendingSetCount: 0,
+                startedSetCount: 0
+            ),
+            event: event,
+            entrants: [dogura, bonchan],
+            standings: [],
+            phases: []
+        )
+    }
+
+    private func slashSeparatedSponsorPrefixDocument() -> ExportDocument {
+        let daigo = entrant(id: "1", name: "REJECT/RC | ウメハラ/Daigo", tag: "ウメハラ/Daigo", seed: 1)
+
+        let event = EventSummary(
+            id: FlexibleID("e-slash-sponsor-prefix"),
+            name: "Street Fighter 6",
+            slug: "tournament/test/event/street-fighter-6",
+            numEntrants: 1,
+            type: 1,
+            videogame: nil,
+            tournament: TournamentSummary(id: FlexibleID("t-slash-sponsor-prefix"), name: "Test", slug: "tournament/test", timezone: "UTC"),
+            phases: []
+        )
+
+        return ExportDocument(
+            schemaVersion: 1,
+            fetchedAt: "2026-05-23T00:00:00Z",
+            source: ExportSource(
+                inputURL: "https://www.start.gg/tournament/test/event/street-fighter-6",
+                eventSlug: "tournament/test/event/street-fighter-6",
+                apiEndpoint: "https://api.start.gg/gql/alpha",
+                apiMode: StartGGAPIMode.authenticatedFast.rawValue
+            ),
+            summary: ExportSummary(
+                phaseCount: 0,
+                entrantCount: 1,
+                standingCount: 0,
+                setCount: 0,
+                completedSetCount: 0,
+                pendingSetCount: 0,
+                startedSetCount: 0
+            ),
+            event: event,
+            entrants: [daigo],
+            standings: [],
+            phases: []
+        )
+    }
+
+    private func pipeSpacingDocument() -> ExportDocument {
+        let dogura = entrant(id: "1", name: "CR|Dogura", tag: "Dogura", seed: 1)
+        let daigo = entrant(id: "2", name: "REJECT ｜ RC | ウメハラ/Daigo", tag: "ウメハラ/Daigo", seed: 2)
+        return entrantOnlyDocument(
+            id: "pipe-spacing",
+            entrants: [dogura, daigo]
+        )
+    }
+
+    private func prefixOnlyParticipantDocument() -> ExportDocument {
+        let entrant = Entrant(
+            id: FlexibleID("prefix-only"),
+            name: "Dogura",
+            initialSeedNum: 1,
+            participants: [
+                Participant(
+                    id: FlexibleID("participant-prefix-only"),
+                    gamerTag: nil,
+                    prefix: "CR",
+                    player: nil
+                )
+            ]
+        )
+        return entrantOnlyDocument(id: "prefix-only", entrants: [entrant])
+    }
+
+    private func shortQueryDocument() -> ExportDocument {
+        let bonchan = entrant(id: "1", name: "Red Bull | CR Bonchan", tag: "Bonchan", seed: 1)
+        let daigo = entrant(id: "2", name: "REJECT/RC | ウメハラ/Daigo", tag: "ウメハラ/Daigo", seed: 2)
+        let redacted = entrant(id: "3", name: "Redacted", tag: "Redacted", seed: 3)
+        return entrantOnlyDocument(id: "short-query", entrants: [bonchan, daigo, redacted])
+    }
+
+    private func entrantOnlyDocument(id: String, entrants: [Entrant]) -> ExportDocument {
+        let event = EventSummary(
+            id: FlexibleID("e-\(id)"),
+            name: "Street Fighter 6",
+            slug: "tournament/test/event/street-fighter-6",
+            numEntrants: entrants.count,
+            type: 1,
+            videogame: nil,
+            tournament: TournamentSummary(id: FlexibleID("t-\(id)"), name: "Test", slug: "tournament/test", timezone: "UTC"),
+            phases: []
+        )
+
+        return ExportDocument(
+            schemaVersion: 1,
+            fetchedAt: "2026-05-23T00:00:00Z",
+            source: ExportSource(
+                inputURL: "https://www.start.gg/tournament/test/event/street-fighter-6",
+                eventSlug: "tournament/test/event/street-fighter-6",
+                apiEndpoint: "https://api.start.gg/gql/alpha",
+                apiMode: StartGGAPIMode.authenticatedFast.rawValue
+            ),
+            summary: ExportSummary(
+                phaseCount: 0,
+                entrantCount: entrants.count,
+                standingCount: 0,
+                setCount: 0,
+                completedSetCount: 0,
+                pendingSetCount: 0,
+                startedSetCount: 0
+            ),
+            event: event,
+            entrants: entrants,
             standings: [],
             phases: []
         )
