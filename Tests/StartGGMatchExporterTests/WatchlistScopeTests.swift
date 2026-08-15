@@ -298,10 +298,10 @@ struct WatchlistScopeTests {
         #expect(markdown.contains("- [検索: Tokido](#検索-tokido)"))
         #expect(markdown.contains("  - [ROHTO Z! Tokido](#rohto-z-tokido)"))
         #expect(!markdown.contains("<a id="))
-        #expect(markdown.contains("### ROHTO Z! Tokido\n\n![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)"))
+        #expect(markdown.contains("### ROHTO Z! Tokido\n\n![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-39d353) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-00b8ff)"))
         #expect(markdown.contains("| 対象者 | 勝敗 | 相手 | スコア | 文脈 |"))
         #expect(markdown.contains("| 選手 | 状況 | 選手 | 状況 | 選手 | 状況 |"))
-        #expect(markdown.contains("| ROHTO Z! Tokido | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) |  |  |  |  |"))
+        #expect(markdown.contains("| ROHTO Z! Tokido | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-39d353) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-00b8ff) |  |  |  |  |"))
         #expect(markdown.contains("| 状況 | 場所 | ラウンド | 選手 | スコア | 相手 | 勝敗 |"))
         #expect(markdown.contains("| 未開始 | Round 1 / A101 | Winners Round 2 | ROHTO Z! Tokido |  | IBUSHIGIN \\| Kakeru | 予定 |"))
         #expect(markdown.contains("| 終了 | Round 1 / A101 | Winners Round 1 | ROHTO Z! Tokido | 2 - 0 | Punk | 勝ち |"))
@@ -332,7 +332,7 @@ struct WatchlistScopeTests {
         let waitingMarkdown = WatchlistScopeBuilder.markdown(from: waitingScope)
         let activeMarkdown = WatchlistScopeBuilder.markdown(from: activeScope)
 
-        #expect(waitingMarkdown.contains("![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600)"))
+        #expect(waitingMarkdown.contains("![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-ff8a00)"))
         #expect(activeMarkdown.contains("![状態: 生存中]"))
         #expect(!activeMarkdown.contains("![状態: 開始待ち]"))
     }
@@ -370,7 +370,7 @@ struct WatchlistScopeTests {
         )
         let markdown = WatchlistScopeBuilder.markdown(from: allScope)
 
-        #expect(markdown.contains("![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-e0003b)"))
+        #expect(markdown.contains("![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-ff1744)"))
         #expect(activeOnly.summary.matchedEntrantCount == 0)
         #expect(eliminatedOnly.summary.matchedEntrantCount == 1)
     }
@@ -386,7 +386,7 @@ struct WatchlistScopeTests {
         let loserMarkdown = WatchlistScopeBuilder.markdown(from: loserScope)
         let winnerMarkdown = WatchlistScopeBuilder.markdown(from: winnerScope)
 
-        #expect(loserMarkdown.contains("![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-e0003b)"))
+        #expect(loserMarkdown.contains("![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-ff1744)"))
         #expect(winnerMarkdown.contains("![状態: 生存中]"))
         #expect(!winnerMarkdown.contains("![状態: DQ]"))
     }
@@ -423,8 +423,8 @@ struct WatchlistScopeTests {
         let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
 
-        #expect(markdown.contains("![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e)"))
-        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f)"))
+        #expect(markdown.contains("![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-39d353)"))
+        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-ff2bd6)"))
     }
 
     @Test("Prefers the newest unfinished set when multiple unfinished sets exist")
@@ -455,7 +455,7 @@ struct WatchlistScopeTests {
         let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
 
-        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f)"))
+        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-ff2bd6)"))
     }
 
     @Test("Shows badges for elimination state with no unfinished matches")
@@ -463,8 +463,8 @@ struct WatchlistScopeTests {
         let scope = WatchlistScopeBuilder.build(from: eliminationDocument(), watchlistText: "Tokido")
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
 
-        #expect(markdown.contains("![状態: 敗退済み](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E6%95%97%E9%80%80%E6%B8%88%E3%81%BF-763dff)"))
-        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f)"))
+        #expect(markdown.contains("![状態: 敗退済み](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E6%95%97%E9%80%80%E6%B8%88%E3%81%BF-a855f7)"))
+        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-ff2bd6)"))
     }
 
     @Test("Shows unknown badge when round text cannot be classified")
@@ -475,7 +475,7 @@ struct WatchlistScopeTests {
         let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
 
-        #expect(markdown.contains("![ブラケット: 不明](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-%E4%B8%8D%E6%98%8E-6257d5)"))
+        #expect(markdown.contains("![ブラケット: 不明](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-%E4%B8%8D%E6%98%8E-7c83fd)"))
     }
 
     @Test("Uses the newest completed set when only completed sets exist")
@@ -507,7 +507,7 @@ struct WatchlistScopeTests {
         let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
 
-        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f)"))
+        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-ff2bd6)"))
     }
 
     @Test("Shows the 10 most recent completed watchlist matches without duplicate sets")
