@@ -375,6 +375,35 @@ struct WatchlistScopeTests {
         #expect(eliminatedOnly.summary.matchedEntrantCount == 1)
     }
 
+    @Test("Shows DQ badge for the loser of a set-level disqualification")
+    func showsDQBadgeForSetLevelDisqualificationLoser() {
+        var document = eliminationDocument()
+        document.phases[0].sets[0].displayScore = "DQ"
+        document.phases[0].sets[0].slots[0] = slot(entrant: document.entrants[0], score: -1, placement: 2)
+
+        let loserScope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+        let winnerScope = WatchlistScopeBuilder.build(from: document, watchlistText: "Kakeru")
+        let loserMarkdown = WatchlistScopeBuilder.markdown(from: loserScope)
+        let winnerMarkdown = WatchlistScopeBuilder.markdown(from: winnerScope)
+
+        #expect(loserMarkdown.contains("![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-red)"))
+        #expect(winnerMarkdown.contains("![状態: 生存中]"))
+        #expect(!winnerMarkdown.contains("![状態: DQ]"))
+    }
+
+    @Test("Keeps entrant active after a set-level DQ when another set is pending")
+    func keepsEntrantActiveAfterSetLevelDQWithPendingSet() {
+        var document = sampleDocument()
+        document.phases[0].sets[0].displayScore = "DQ"
+        document.phases[0].sets[0].slots[1] = slot(entrant: document.entrants[1], score: -1, placement: 2)
+
+        let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Kakeru")
+        let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+        #expect(markdown.contains("![状態: 生存中]"))
+        #expect(!markdown.contains("![状態: DQ]"))
+    }
+
     @Test("Includes waiting entrants in the active status filter")
     func includesWaitingEntrantsInActiveStatusFilter() {
         let scope = WatchlistScopeBuilder.build(

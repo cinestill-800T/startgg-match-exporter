@@ -483,6 +483,10 @@ enum WatchlistScopeBuilder {
             return BadgeValue(label: "不明", color: "lightgrey")
         }
 
+        if isSetDisqualification(latestCompleted) {
+            return BadgeValue(label: "DQ", color: "red")
+        }
+
         switch latestCompleted.result {
         case "loss":
             return BadgeValue(label: "敗退済み", color: "red")
@@ -491,6 +495,14 @@ enum WatchlistScopeBuilder {
         default:
             return BadgeValue(label: "不明", color: "lightgrey")
         }
+    }
+
+    private static func isSetDisqualification(_ context: WatchlistSetContext) -> Bool {
+        guard context.result == "loss", let displayScore = context.set.displayScore else {
+            return false
+        }
+        return displayScore.trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare("DQ") == .orderedSame
     }
 
     private static func bracketSide(for report: WatchlistEntrantReport) -> BadgeValue {
