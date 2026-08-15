@@ -71,15 +71,15 @@
 
 | 選手 | 状況 | 選手 | 状況 | 選手 | 状況 |
 | --- | --- | --- | --- | --- | --- |
-| VARREL \| Mizuha | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | VARREL \| Tokido | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | VARREL \| Wabiichi | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) |
-| CR \| Dogura | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | CR \| Dual Kevin | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | CR \| Tachikawa | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) |
-| ZETA \| Higuchi | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | FAV \| moke | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | G8S/GP \| Sahara. | ![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-b42318) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-bc4c00) |
-| G8S/HitBox \| Kawano | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | G8S/PWS \| pugera | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-bc4c00) | G8S/RB/PWS \| gachikun | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) |
-| SS熊本 \| Nemo | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-bc4c00) | SS熊本 \| cosa | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | SS熊本 \| kobayan | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) |
-| SS 熊本 \| \| NotPedro | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | REJECT \| YAS | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | REJECT \| tako | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) |
-| 広島TEAM iXA \| Akira | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | 広島TEAM iXA \| takepi | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | 広島TEAM iXA/HT \| ACQUA | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) |
-| RIDDLE ORDER \| Jr. | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | SCARZ \| Ryusei | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | SCARZ \| kincho | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) |
-| TMG \| MOV | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | LaVISION \| タンタンメン/Tantanmen | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da) | VIT \| Fenritti | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-bc4c00) |
+| VARREL \| Mizuha | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | VARREL \| Tokido | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | VARREL \| Wabiichi | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) |
+| CR \| Dogura | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | CR \| Dual Kevin | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | CR \| Tachikawa | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) |
+| ZETA \| Higuchi | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | FAV \| moke | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | G8S/GP \| Sahara. | ![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-e0003b) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f) |
+| G8S/HitBox \| Kawano | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | G8S/PWS \| pugera | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f) | G8S/RB/PWS \| gachikun | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) |
+| SS熊本 \| Nemo | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f) | SS熊本 \| cosa | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | SS熊本 \| kobayan | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) |
+| SS 熊本 \| \| NotPedro | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | REJECT \| YAS | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | REJECT \| tako | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) |
+| 広島TEAM iXA \| Akira | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | 広島TEAM iXA \| takepi | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | 広島TEAM iXA/HT \| ACQUA | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) |
+| RIDDLE ORDER \| Jr. | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | SCARZ \| Ryusei | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | SCARZ \| kincho | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) |
+| TMG \| MOV | ![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | LaVISION \| タンタンメン/Tantanmen | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4) | VIT \| Fenritti | ![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f) |
 
 ## 概要
 
@@ -98,7 +98,7 @@
 
 ### VARREL | Mizuha
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`VARREL`）
 - シード: 44
@@ -125,7 +125,7 @@
 
 ### VARREL | Tokido
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`VARREL`）
 - シード: 15
@@ -152,7 +152,7 @@
 
 ### VARREL | Wabiichi
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`VARREL`）
 - シード: 46
@@ -180,7 +180,7 @@
 
 ### CR | Dogura
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`CR`）
 - シード: 27
@@ -198,7 +198,7 @@
 
 ### CR | Dual Kevin
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`CR`）
 - シード: 9
@@ -216,7 +216,7 @@
 
 ### CR | Tachikawa
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`CR`）
 - シード: 35
@@ -235,7 +235,7 @@
 
 ### ZETA | Higuchi
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`ZETA`）
 - シード: 3
@@ -262,7 +262,7 @@
 
 ### FAV | moke
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`FAV`）
 - シード: 18
@@ -290,7 +290,7 @@
 
 ### G8S/GP | Sahara.
 
-![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-b42318) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-bc4c00)
+![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-e0003b) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f)
 
 - 一致理由: 完全一致（`G8S`）
 - シード: 561
@@ -309,7 +309,7 @@
 
 ### G8S/HitBox | Kawano
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`G8S`）
 - シード: 36
@@ -335,7 +335,7 @@
 
 ### G8S/PWS | pugera
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-bc4c00)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f)
 
 - 一致理由: 完全一致（`G8S`）
 - シード: 37
@@ -362,7 +362,7 @@
 
 ### G8S/RB/PWS | gachikun
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`G8S`）
 - シード: 13
@@ -390,7 +390,7 @@
 
 ### SS熊本 | Nemo
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-bc4c00)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f)
 
 - 一致理由: 完全一致（`SS熊本`）
 - シード: 54
@@ -419,7 +419,7 @@
 
 ### SS熊本 | cosa
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`SS熊本`）
 - シード: 12
@@ -437,7 +437,7 @@
 
 ### SS熊本 | kobayan
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`SS熊本`）
 - シード: 8
@@ -455,7 +455,7 @@
 
 ### SS 熊本 | | NotPedro
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 記号・空白を除いた完全一致（`SS 熊本`）
 - シード: 45
@@ -474,7 +474,7 @@
 
 ### REJECT | YAS
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`REJECT`）
 - シード: 48
@@ -492,7 +492,7 @@
 
 ### REJECT | tako
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`REJECT`）
 - シード: 38
@@ -527,7 +527,7 @@
 
 ### 広島TEAM iXA | Akira
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`iXA`）
 - シード: 62
@@ -545,7 +545,7 @@
 
 ### 広島TEAM iXA | takepi
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`iXA`）
 - シード: 28
@@ -573,7 +573,7 @@
 
 ### 広島TEAM iXA/HT | ACQUA
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`iXA`）
 - シード: 313
@@ -592,7 +592,7 @@
 
 ### RIDDLE ORDER | Jr.
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`RIDDLE`）
 - シード: 24
@@ -620,7 +620,7 @@
 
 ### SCARZ | Ryusei
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`SCARZ`）
 - シード: 63
@@ -647,7 +647,7 @@
 
 ### SCARZ | kincho
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`SCARZ`）
 - シード: 17
@@ -670,7 +670,7 @@
 
 ### TMG | MOV
 
-![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-6f42c1) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-cf4600) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`TMG`）
 - シード: 71
@@ -689,7 +689,7 @@
 
 ### LaVISION | タンタンメン/Tantanmen
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0969da)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Winners](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Winners-0075d4)
 
 - 一致理由: 完全一致（`LaVISION`）
 - シード: 32
@@ -717,7 +717,7 @@
 
 ### VIT | Fenritti
 
-![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-1a7f37) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-bc4c00)
+![状態: 生存中](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E7%94%9F%E5%AD%98%E4%B8%AD-00893e) ![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-d5008f)
 
 - 一致理由: 完全一致（`VIT`）
 - シード: 55

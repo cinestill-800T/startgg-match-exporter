@@ -1001,13 +1001,13 @@ private struct BadgeValue {
 }
 
 private enum BadgePalette {
-    static let statusWaiting = "6f42c1"
-    static let statusActive = "1a7f37"
-    static let statusDQ = "b42318"
-    static let statusEliminated = "57606a"
-    static let bracketWinners = "0969da"
-    static let bracketLosers = "bc4c00"
-    static let unknown = "656d76"
+    static let statusWaiting = "cf4600"
+    static let statusActive = "00893e"
+    static let statusDQ = "e0003b"
+    static let statusEliminated = "763dff"
+    static let bracketWinners = "0075d4"
+    static let bracketLosers = "d5008f"
+    static let unknown = "6257d5"
 }
 
 private struct EntrantMatch: Hashable {

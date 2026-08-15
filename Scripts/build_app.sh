@@ -39,9 +39,9 @@ build_one() {
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>2.5.3</string>
+  <string>2.5.4</string>
   <key>CFBundleVersion</key>
-  <string>29</string>
+  <string>30</string>
   <key>LSMinimumSystemVersion</key>
   <string>13.0</string>
   <key>NSPrincipalClass</key>
