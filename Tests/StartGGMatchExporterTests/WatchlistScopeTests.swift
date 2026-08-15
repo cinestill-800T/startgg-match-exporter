@@ -371,6 +371,7 @@ struct WatchlistScopeTests {
         let markdown = WatchlistScopeBuilder.markdown(from: allScope)
 
         #expect(markdown.contains("![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-ff1744)"))
+        #expect(!markdown.contains("![ブラケット:"))
         #expect(activeOnly.summary.matchedEntrantCount == 0)
         #expect(eliminatedOnly.summary.matchedEntrantCount == 1)
     }
@@ -387,7 +388,9 @@ struct WatchlistScopeTests {
         let winnerMarkdown = WatchlistScopeBuilder.markdown(from: winnerScope)
 
         #expect(loserMarkdown.contains("![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-ff1744)"))
+        #expect(!loserMarkdown.contains("![ブラケット:"))
         #expect(winnerMarkdown.contains("![状態: 生存中]"))
+        #expect(winnerMarkdown.contains("![ブラケット: Losers]"))
         #expect(!winnerMarkdown.contains("![状態: DQ]"))
     }
 

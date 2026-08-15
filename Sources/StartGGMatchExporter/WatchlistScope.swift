@@ -427,11 +427,16 @@ enum WatchlistScopeBuilder {
 
     private static func statusBadgesLine(for report: WatchlistEntrantReport) -> String {
         let survival = survivalStatus(for: report)
-        let bracket = bracketSide(for: report)
-        return [
-            markdownBadge(label: "状態", message: survival.label, color: survival.color),
-            markdownBadge(label: "ブラケット", message: bracket.label, color: bracket.color)
-        ].joined(separator: " ")
+        var badges = [
+            markdownBadge(label: "状態", message: survival.label, color: survival.color)
+        ]
+
+        if survival.label != "DQ" {
+            let bracket = bracketSide(for: report)
+            badges.append(markdownBadge(label: "ブラケット", message: bracket.label, color: bracket.color))
+        }
+
+        return badges.joined(separator: " ")
     }
 
     private static func matchesFilter(_ report: WatchlistEntrantReport, using filter: WatchlistOutputFilter) -> Bool {
