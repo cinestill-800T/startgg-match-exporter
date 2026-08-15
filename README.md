@@ -2,7 +2,7 @@
 
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey.svg)](https://www.apple.com/macos/)
-[![Release](https://img.shields.io/badge/release-v2.5.2-green.svg)](https://github.com/cinestill-800T/startgg-match-exporter/releases/tag/v2.5.2)
+[![Release](https://img.shields.io/badge/release-v2.5.3-green.svg)](https://github.com/cinestill-800T/startgg-match-exporter/releases/tag/v2.5.3)
 [![start.gg API](https://img.shields.io/badge/start.gg-GraphQL%20API-ff6694.svg)](https://developer.start.gg/docs/intro/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -66,6 +66,12 @@ The Markdown status badge distinguishes entrants as follows:
 - `生存中`: the entrant is active, waiting after a completed set, or most recently won
 - `DQ`: start.gg marks the entrant or the entrant's latest lost set as disqualified
 - `敗退済み`: the entrant's latest completed result is a loss and no unfinished set remains
+
+Badge colors use separate visual families so player status and bracket side remain easy to distinguish:
+
+- Status: `開始待ち` is purple, `生存中` is green, `DQ` is dark red, and `敗退済み` is slate
+- Bracket: `Winners` is blue and `Losers` is burnt orange
+- Unknown values use neutral gray
 
 ## Analysis Pack
 

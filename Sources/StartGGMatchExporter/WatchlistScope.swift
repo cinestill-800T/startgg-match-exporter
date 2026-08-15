@@ -467,33 +467,33 @@ enum WatchlistScopeBuilder {
 
     private static func survivalStatus(for report: WatchlistEntrantReport) -> BadgeValue {
         if report.entrant.isDisqualified == true {
-            return BadgeValue(label: "DQ", color: "red")
+            return BadgeValue(label: "DQ", color: BadgePalette.statusDQ)
         }
 
         if let latestUnfinished = latestRelevantSetContext(for: report, preferUnfinished: true),
            !StartGGSetState.isCompleted(latestUnfinished.set.state) {
             if report.completedSetCount == 0, StartGGSetState.isPending(latestUnfinished.set.state) {
-                return BadgeValue(label: "開始待ち", color: "blue")
+                return BadgeValue(label: "開始待ち", color: BadgePalette.statusWaiting)
             }
-            return BadgeValue(label: "生存中", color: "brightgreen")
+            return BadgeValue(label: "生存中", color: BadgePalette.statusActive)
         }
 
         guard let latestCompleted = latestRelevantSetContext(for: report, preferUnfinished: false),
               StartGGSetState.isCompleted(latestCompleted.set.state) else {
-            return BadgeValue(label: "不明", color: "lightgrey")
+            return BadgeValue(label: "不明", color: BadgePalette.unknown)
         }
 
         if isSetDisqualification(latestCompleted) {
-            return BadgeValue(label: "DQ", color: "red")
+            return BadgeValue(label: "DQ", color: BadgePalette.statusDQ)
         }
 
         switch latestCompleted.result {
         case "loss":
-            return BadgeValue(label: "敗退済み", color: "red")
+            return BadgeValue(label: "敗退済み", color: BadgePalette.statusEliminated)
         case "win":
-            return BadgeValue(label: "生存中", color: "brightgreen")
+            return BadgeValue(label: "生存中", color: BadgePalette.statusActive)
         default:
-            return BadgeValue(label: "不明", color: "lightgrey")
+            return BadgeValue(label: "不明", color: BadgePalette.unknown)
         }
     }
 
@@ -507,20 +507,20 @@ enum WatchlistScopeBuilder {
 
     private static func bracketSide(for report: WatchlistEntrantReport) -> BadgeValue {
         guard let preferredSet = latestRelevantSetContext(for: report, preferUnfinished: true) else {
-            return BadgeValue(label: "不明", color: "lightgrey")
+            return BadgeValue(label: "不明", color: BadgePalette.unknown)
         }
 
         guard let roundText = preferredSet.set.fullRoundText?.lowercased() else {
-            return BadgeValue(label: "不明", color: "lightgrey")
+            return BadgeValue(label: "不明", color: BadgePalette.unknown)
         }
 
         if roundText.contains("winners") {
-            return BadgeValue(label: "Winners", color: "blue")
+            return BadgeValue(label: "Winners", color: BadgePalette.bracketWinners)
         }
         if roundText.contains("losers") {
-            return BadgeValue(label: "Losers", color: "orange")
+            return BadgeValue(label: "Losers", color: BadgePalette.bracketLosers)
         }
-        return BadgeValue(label: "不明", color: "lightgrey")
+        return BadgeValue(label: "不明", color: BadgePalette.unknown)
     }
 
     private static func latestRelevantSetContext(for report: WatchlistEntrantReport, preferUnfinished: Bool) -> WatchlistSetContext? {
@@ -998,6 +998,16 @@ enum WatchlistScopeBuilder {
 private struct BadgeValue {
     var label: String
     var color: String
+}
+
+private enum BadgePalette {
+    static let statusWaiting = "6f42c1"
+    static let statusActive = "1a7f37"
+    static let statusDQ = "b42318"
+    static let statusEliminated = "57606a"
+    static let bracketWinners = "0969da"
+    static let bracketLosers = "bc4c00"
+    static let unknown = "656d76"
 }
 
 private struct EntrantMatch: Hashable {
