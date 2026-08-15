@@ -319,8 +319,71 @@ struct WatchlistScopeTests {
 
         #expect(statusSection.contains("| 選手 | 状況 | 選手 | 状況 | 選手 | 状況 |"))
         #expect(dataRow.contains("| ROHTO Z! Tokido | ![状態: 生存中]"))
-        #expect(dataRow.contains("| IBUSHIGIN \\| Kakeru | ![状態: 生存中]"))
+        #expect(dataRow.contains("| IBUSHIGIN \\| Kakeru | ![状態: 開始待ち]"))
         #expect(dataRow.contains("![ブラケット: Winners]"))
+    }
+
+    @Test("Shows waiting badge only before the first completed set")
+    func showsWaitingBadgeOnlyBeforeFirstCompletedSet() {
+        let document = sampleDocument()
+        let waitingScope = WatchlistScopeBuilder.build(from: document, watchlistText: "Kakeru")
+        let activeScope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
+
+        let waitingMarkdown = WatchlistScopeBuilder.markdown(from: waitingScope)
+        let activeMarkdown = WatchlistScopeBuilder.markdown(from: activeScope)
+
+        #expect(waitingMarkdown.contains("![状態: 開始待ち](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E9%96%8B%E5%A7%8B%E5%BE%85%E3%81%A1-blue)"))
+        #expect(activeMarkdown.contains("![状態: 生存中]"))
+        #expect(!activeMarkdown.contains("![状態: 開始待ち]"))
+    }
+
+    @Test("Shows active badge for started and called first sets")
+    func showsActiveBadgeForStartedAndCalledFirstSets() {
+        for state in [StartGGSetState.started.rawValue, StartGGSetState.called.rawValue] {
+            var document = sampleDocument()
+            document.phases[0].sets[1].state = state
+
+            let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Kakeru")
+            let markdown = WatchlistScopeBuilder.markdown(from: scope)
+
+            #expect(markdown.contains("![状態: 生存中]"))
+            #expect(!markdown.contains("![状態: 開始待ち]"))
+        }
+    }
+
+    @Test("Shows DQ badge and preserves status filter grouping")
+    func showsDQBadgeAndPreservesStatusFilterGrouping() {
+        var document = eliminationDocument()
+        document.entrants[0].isDisqualified = true
+        let watchlistText = "Tokido"
+
+        let allScope = WatchlistScopeBuilder.build(from: document, watchlistText: watchlistText)
+        let activeOnly = WatchlistScopeBuilder.build(
+            from: document,
+            watchlistText: watchlistText,
+            filter: WatchlistOutputFilter(includeLiving: true, includeEliminated: false, includeWinners: false, includeLosers: false)
+        )
+        let eliminatedOnly = WatchlistScopeBuilder.build(
+            from: document,
+            watchlistText: watchlistText,
+            filter: WatchlistOutputFilter(includeLiving: false, includeEliminated: true, includeWinners: false, includeLosers: false)
+        )
+        let markdown = WatchlistScopeBuilder.markdown(from: allScope)
+
+        #expect(markdown.contains("![状態: DQ](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-DQ-red)"))
+        #expect(activeOnly.summary.matchedEntrantCount == 0)
+        #expect(eliminatedOnly.summary.matchedEntrantCount == 1)
+    }
+
+    @Test("Includes waiting entrants in the active status filter")
+    func includesWaitingEntrantsInActiveStatusFilter() {
+        let scope = WatchlistScopeBuilder.build(
+            from: sampleDocument(),
+            watchlistText: "Kakeru",
+            filter: WatchlistOutputFilter(includeLiving: true, includeEliminated: false, includeWinners: false, includeLosers: false)
+        )
+
+        #expect(scope.summary.matchedEntrantCount == 1)
     }
 
     @Test("Shows badges for losers-side active matches")

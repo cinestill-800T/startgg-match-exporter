@@ -447,9 +447,9 @@ enum WatchlistScopeBuilder {
         case (false, false), (true, true):
             survivalAllowed = true
         case (true, false):
-            survivalAllowed = survival == "生存中"
+            survivalAllowed = survival == "生存中" || survival == "開始待ち"
         case (false, true):
-            survivalAllowed = survival == "敗退済み"
+            survivalAllowed = survival == "敗退済み" || survival == "DQ"
         }
 
         let bracketAllowed: Bool
@@ -466,8 +466,15 @@ enum WatchlistScopeBuilder {
     }
 
     private static func survivalStatus(for report: WatchlistEntrantReport) -> BadgeValue {
+        if report.entrant.isDisqualified == true {
+            return BadgeValue(label: "DQ", color: "red")
+        }
+
         if let latestUnfinished = latestRelevantSetContext(for: report, preferUnfinished: true),
            !StartGGSetState.isCompleted(latestUnfinished.set.state) {
+            if report.completedSetCount == 0, StartGGSetState.isPending(latestUnfinished.set.state) {
+                return BadgeValue(label: "開始待ち", color: "blue")
+            }
             return BadgeValue(label: "生存中", color: "brightgreen")
         }
 

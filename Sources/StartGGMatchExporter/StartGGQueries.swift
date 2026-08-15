@@ -94,6 +94,7 @@ enum StartGGQueries {
             id
             name
             initialSeedNum
+            isDisqualified
             participants {
               id
               gamerTag

@@ -28,6 +28,15 @@ struct ExportEncodingTests {
         #expect(variables?["public"] as? Bool == true)
     }
 
+    @Test("Decodes legacy entrants without disqualification state")
+    func decodesLegacyEntrantWithoutDisqualificationState() throws {
+        let data = Data(#"{"id":"legacy","name":"Legacy","initialSeedNum":1,"participants":[]}"#.utf8)
+        let entrant = try JSONDecoder().decode(Entrant.self, from: data)
+
+        #expect(entrant.id == FlexibleID("legacy"))
+        #expect(entrant.isDisqualified == nil)
+    }
+
     @Test("Encodes stable export document")
     func encodesDocument() throws {
         let event = EventSummary(
@@ -101,5 +110,10 @@ struct ExportEncodingTests {
         #expect(!fastQuery.contains("destPhases"))
         #expect(safeQuery.contains("percentComplete"))
         #expect(safeQuery.contains("destPhases"))
+    }
+
+    @Test("Requests entrant disqualification state")
+    func requestsEntrantDisqualificationState() {
+        #expect(StartGGQueries.eventEntrants.contains("isDisqualified"))
     }
 }

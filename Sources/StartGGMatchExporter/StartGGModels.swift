@@ -81,6 +81,7 @@ struct Entrant: Codable, Hashable, Sendable {
     var name: String?
     var initialSeedNum: Int?
     var participants: [Participant]?
+    var isDisqualified: Bool? = nil
 }
 
 extension Entrant {
@@ -89,7 +90,8 @@ extension Entrant {
             id: id,
             name: Self.firstNonBlank(name, incoming.name),
             initialSeedNum: initialSeedNum ?? incoming.initialSeedNum,
-            participants: Self.mergedParticipants(participants, incoming.participants)
+            participants: Self.mergedParticipants(participants, incoming.participants),
+            isDisqualified: isDisqualified ?? incoming.isDisqualified
         )
     }
 
