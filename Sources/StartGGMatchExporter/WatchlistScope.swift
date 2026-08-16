@@ -379,7 +379,53 @@ enum WatchlistScopeBuilder {
             }
         }
 
-        return reports
+        return reports.enumerated()
+            .sorted { lhs, rhs in
+                let lhsStatusRank = currentStatusRank(for: lhs.element)
+                let rhsStatusRank = currentStatusRank(for: rhs.element)
+                if lhsStatusRank != rhsStatusRank {
+                    return lhsStatusRank < rhsStatusRank
+                }
+
+                let lhsBracketRank = currentBracketRank(for: lhs.element)
+                let rhsBracketRank = currentBracketRank(for: rhs.element)
+                if lhsBracketRank != rhsBracketRank {
+                    return lhsBracketRank < rhsBracketRank
+                }
+
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
+    }
+
+    private static func currentStatusRank(for report: WatchlistEntrantReport) -> Int {
+        switch survivalStatus(for: report).label {
+        case "生存中":
+            return 0
+        case "開始待ち":
+            return 1
+        case "敗退済み":
+            return 2
+        case "DQ":
+            return 3
+        default:
+            return 4
+        }
+    }
+
+    private static func currentBracketRank(for report: WatchlistEntrantReport) -> Int {
+        guard survivalStatus(for: report).label != "DQ" else {
+            return 2
+        }
+
+        switch bracketSide(for: report).label {
+        case "Winners":
+            return 0
+        case "Losers":
+            return 1
+        default:
+            return 2
+        }
     }
 
     private static func appendTableOfContents(for document: WatchlistExportDocument, to lines: inout [String]) {

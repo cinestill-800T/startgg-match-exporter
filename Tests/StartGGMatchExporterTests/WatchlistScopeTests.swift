@@ -323,6 +323,67 @@ struct WatchlistScopeTests {
         #expect(dataRow.contains("![ブラケット: Winners]"))
     }
 
+    @Test("Groups current status summary by status and bracket while preserving group order")
+    func groupsCurrentStatusSummaryByStatusAndBracket() {
+        var document = sampleDocument()
+        let cammy = entrant(id: "5", name: "Cammy", tag: "Cammy", seed: 5)
+        document.entrants.append(cammy)
+        document.phases[0].sets.append(
+            ExportSet(
+                SetNode(
+                    id: FlexibleID("s-active-winners"),
+                    identifier: "C",
+                    state: StartGGSetState.started.rawValue,
+                    round: 3,
+                    fullRoundText: "Winners Round 3",
+                    displayScore: nil,
+                    winnerId: nil,
+                    completedAt: nil,
+                    startedAt: 3,
+                    updatedAt: 3,
+                    phaseGroup: PhaseGroupRef(id: FlexibleID("pg1"), displayIdentifier: "A101"),
+                    slots: [
+                        slot(entrant: document.entrants.first { $0.id.value == "3" }, score: nil, placement: nil),
+                        slot(entrant: cammy, score: nil, placement: nil)
+                    ]
+                )
+            )
+        )
+        document.phases[0].sets.append(
+            ExportSet(
+                SetNode(
+                    id: FlexibleID("s-active-losers"),
+                    identifier: "D",
+                    state: StartGGSetState.started.rawValue,
+                    round: 4,
+                    fullRoundText: "Losers Round 4",
+                    displayScore: nil,
+                    winnerId: nil,
+                    completedAt: nil,
+                    startedAt: 4,
+                    updatedAt: 4,
+                    phaseGroup: PhaseGroupRef(id: FlexibleID("pg1"), displayIdentifier: "A101"),
+                    slots: [
+                        slot(entrant: document.entrants.first { $0.id.value == "4" }, score: nil, placement: nil),
+                        slot(entrant: nil, score: nil, placement: nil)
+                    ]
+                )
+            )
+        )
+
+        let scope = WatchlistScopeBuilder.build(
+            from: document,
+            watchlistText: "Itabashi Zangief\nPunk\nTokido\nCammy\nKakeru"
+        )
+        let statusSection = WatchlistScopeBuilder.markdown(from: scope)
+            .section(named: "ウォッチ対象者の現在状況")
+        let expectedOrder = ["Punk", "ROHTO Z! Tokido", "Cammy", "Itabashi Zangief", "IBUSHIGIN"]
+        let positions = expectedOrder.compactMap { statusSection.range(of: $0)?.lowerBound }
+
+        #expect(positions.count == expectedOrder.count)
+        #expect(zip(positions, positions.dropFirst()).allSatisfy(<))
+    }
+
     @Test("Shows waiting badge only before the first completed set")
     func showsWaitingBadgeOnlyBeforeFirstCompletedSet() {
         let document = sampleDocument()
