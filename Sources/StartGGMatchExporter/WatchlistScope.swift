@@ -477,7 +477,7 @@ enum WatchlistScopeBuilder {
             markdownBadge(label: "状態", message: survival.label, color: survival.color)
         ]
 
-        if survival.label != "DQ" {
+        if survival.label != "DQ", survival.label != "敗退済み" {
             let bracket = bracketSide(for: report)
             badges.append(markdownBadge(label: "ブラケット", message: bracket.label, color: bracket.color))
         }

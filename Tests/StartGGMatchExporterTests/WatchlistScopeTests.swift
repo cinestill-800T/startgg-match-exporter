@@ -522,13 +522,13 @@ struct WatchlistScopeTests {
         #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-ff2bd6)"))
     }
 
-    @Test("Shows badges for elimination state with no unfinished matches")
-    func showsBadgesForEliminationStateWithNoUnfinishedMatches() {
+    @Test("Shows elimination status without a bracket badge")
+    func showsEliminationStatusWithoutBracketBadge() {
         let scope = WatchlistScopeBuilder.build(from: eliminationDocument(), watchlistText: "Tokido")
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
 
         #expect(markdown.contains("![状態: 敗退済み](https://img.shields.io/badge/%E7%8A%B6%E6%85%8B-%E6%95%97%E9%80%80%E6%B8%88%E3%81%BF-a855f7)"))
-        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-ff2bd6)"))
+        #expect(!markdown.contains("![ブラケット:"))
     }
 
     @Test("Shows unknown badge when round text cannot be classified")
@@ -542,8 +542,8 @@ struct WatchlistScopeTests {
         #expect(markdown.contains("![ブラケット: 不明](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-%E4%B8%8D%E6%98%8E-7c83fd)"))
     }
 
-    @Test("Uses the newest completed set when only completed sets exist")
-    func usesNewestCompletedSetWhenOnlyCompletedSetsExist() {
+    @Test("Hides the bracket badge when the newest completed set eliminates the entrant")
+    func hidesBracketBadgeWhenNewestCompletedSetEliminatesEntrant() {
         var document = sampleDocument()
         document.phases[0].sets = [
             document.phases[0].sets[0],
@@ -571,7 +571,8 @@ struct WatchlistScopeTests {
         let scope = WatchlistScopeBuilder.build(from: document, watchlistText: "Tokido")
         let markdown = WatchlistScopeBuilder.markdown(from: scope)
 
-        #expect(markdown.contains("![ブラケット: Losers](https://img.shields.io/badge/%E3%83%96%E3%83%A9%E3%82%B1%E3%83%83%E3%83%88-Losers-ff2bd6)"))
+        #expect(markdown.contains("![状態: 敗退済み]"))
+        #expect(!markdown.contains("![ブラケット:"))
     }
 
     @Test("Shows the 10 most recent completed watchlist matches without duplicate sets")
