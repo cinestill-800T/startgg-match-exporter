@@ -63,10 +63,11 @@ jobs:
             -c "$CODE_SIGN_CERTIFICATE_NAME" \
             -p \
             "$keychain_path" > "$public_certificate_path"
-          security add-trusted-cert \
+          sudo -n security add-trusted-cert \
+            -d \
             -p codeSign \
             -r trustRoot \
-            -k "$keychain_path" \
+            -k /Library/Keychains/System.keychain \
             "$public_certificate_path"
           security find-identity -v -p codesigning "$keychain_path" | grep -Fq "$CODE_SIGN_IDENTITY"
 
@@ -87,6 +88,15 @@ jobs:
       - name: Remove temporary signing keychain
         if: always()
         run: |
+          public_certificate_path="$RUNNER_TEMP/startgg-signing-certificate.pem"
+          if [[ -f "$public_certificate_path" ]]; then
+            sudo -n security remove-trusted-cert \
+              -d \
+              "$public_certificate_path" >/dev/null 2>&1 || true
+          fi
+          sudo -n security delete-certificate \
+            -Z "$CODE_SIGN_IDENTITY" \
+            /Library/Keychains/System.keychain >/dev/null 2>&1 || true
           keychain_path="$RUNNER_TEMP/startgg-signing.keychain-db"
           if [[ -f "$keychain_path" ]]; then
             security delete-keychain "$keychain_path" >/dev/null 2>&1 || true
