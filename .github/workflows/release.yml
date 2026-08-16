@@ -59,6 +59,10 @@ jobs:
             -s \
             -k "$keychain_password" \
             "$keychain_path"
+          security list-keychains -d user -s \
+            "$keychain_path" \
+            /Library/Keychains/System.keychain
+          security default-keychain -d user -s "$keychain_path"
           security find-certificate \
             -c "$CODE_SIGN_CERTIFICATE_NAME" \
             -p \
@@ -69,9 +73,18 @@ jobs:
             -r trustRoot \
             -k /Library/Keychains/System.keychain \
             "$public_certificate_path"
-          security find-identity -v -p codesigning "$keychain_path" | grep -Fq "$CODE_SIGN_IDENTITY"
+          security find-identity -v -p codesigning | grep -Fq "$CODE_SIGN_IDENTITY"
 
-          echo "CODE_SIGN_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
+          smoke_path="$RUNNER_TEMP/startgg-codesign-smoke"
+          cp /usr/bin/true "$smoke_path"
+          codesign \
+            --force \
+            --options runtime \
+            --timestamp=none \
+            --sign "$CODE_SIGN_IDENTITY" \
+            "$smoke_path"
+          codesign --verify --strict "$smoke_path"
+          rm -f "$smoke_path"
 
       - name: Build release app bundle
         run: Scripts/build_app.sh release
@@ -87,20 +100,12 @@ jobs:
 
       - name: Remove temporary signing keychain
         if: always()
+        timeout-minutes: 2
         run: |
-          public_certificate_path="$RUNNER_TEMP/startgg-signing-certificate.pem"
-          if [[ -f "$public_certificate_path" ]]; then
-            sudo -n security remove-trusted-cert \
-              -d \
-              "$public_certificate_path" >/dev/null 2>&1 || true
-          fi
-          sudo -n security delete-certificate \
-            -Z "$CODE_SIGN_IDENTITY" \
-            /Library/Keychains/System.keychain >/dev/null 2>&1 || true
+          rm -f \
+            "$RUNNER_TEMP/startgg-signing-identity.p12" \
+            "$RUNNER_TEMP/startgg-signing-certificate.pem" || true
           keychain_path="$RUNNER_TEMP/startgg-signing.keychain-db"
           if [[ -f "$keychain_path" ]]; then
             security delete-keychain "$keychain_path" >/dev/null 2>&1 || true
           fi
-          rm -f \
-            "$RUNNER_TEMP/startgg-signing-identity.p12" \
-            "$RUNNER_TEMP/startgg-signing-certificate.pem"
