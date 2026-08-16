@@ -2,7 +2,7 @@
 
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey.svg)](https://www.apple.com/macos/)
-[![Release](https://img.shields.io/badge/release-v2.5.7-green.svg)](https://github.com/cinestill-800T/startgg-match-exporter/releases/tag/v2.5.7)
+[![Release](https://img.shields.io/badge/release-v2.5.8-green.svg)](https://github.com/cinestill-800T/startgg-match-exporter/releases/tag/v2.5.8)
 [![start.gg API](https://img.shields.io/badge/start.gg-GraphQL%20API-ff6694.svg)](https://developer.start.gg/docs/intro/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -158,7 +158,9 @@ The script places built artifacts directly under:
 - `debug/`
 - `release/`
 
-Built app bundles and zip files are ignored by Git. When a GitHub Release is published, GitHub Actions builds the release app and uploads `StartGGMatchExporter-macOS-release.zip` to that release automatically. The same workflow can be rerun manually with `workflow_dispatch` by entering an existing release tag.
+Built app bundles and zip files are ignored by Git. When a GitHub Release is published, GitHub Actions builds the release app and uploads `StartGGMatchExporter-macOS-release.zip` to that release automatically. A failed release workflow can be rerun from its existing GitHub Actions run.
+
+Local builds use the `StartGGMatchExporter Local Signing` code-signing identity when it is installed in the login Keychain, and otherwise fall back to ad-hoc signing. Release builds import the same password-protected identity from the `MACOS_CERTIFICATE_P12` and `MACOS_CERTIFICATE_PASSWORD` GitHub Secrets into a temporary Keychain, select it by the public fingerprint in the `MACOS_CODE_SIGN_IDENTITY` repository variable, then delete the signing material after the job. The Release workflow is the only checked-in workflow that references these Secrets, and pull request runs do not receive them. Keeping one signing identity across builds prevents macOS from treating each version as a different app when it accesses the saved start.gg API token. This local identity is not an Apple Developer ID and does not provide notarization or Gatekeeper trust.
 
 ## API Notes
 

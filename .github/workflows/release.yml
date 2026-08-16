@@ -3,12 +3,6 @@ name: Build macOS Release App
 on:
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag to upload the app zip to"
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -19,18 +13,64 @@ jobs:
     runs-on: macos-latest
     env:
       APP_NAME: StartGGMatchExporter
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      CODE_SIGN_IDENTITY: ${{ vars.MACOS_CODE_SIGN_IDENTITY }}
+      CODE_SIGN_CERTIFICATE_NAME: StartGGMatchExporter Local Signing
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
+          ref: ${{ github.event.release.tag_name }}
 
       - name: Show Swift version
         run: swift --version
 
       - name: Run tests
         run: swift test
+
+      - name: Import release signing identity
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${MACOS_CERTIFICATE_P12:?MACOS_CERTIFICATE_P12 is not configured}"
+          : "${MACOS_CERTIFICATE_PASSWORD:?MACOS_CERTIFICATE_PASSWORD is not configured}"
+          : "${CODE_SIGN_IDENTITY:?MACOS_CODE_SIGN_IDENTITY is not configured}"
+          : "${CODE_SIGN_CERTIFICATE_NAME:?CODE_SIGN_CERTIFICATE_NAME is not configured}"
+
+          certificate_path="$RUNNER_TEMP/startgg-signing-identity.p12"
+          public_certificate_path="$RUNNER_TEMP/startgg-signing-certificate.pem"
+          keychain_path="$RUNNER_TEMP/startgg-signing.keychain-db"
+          keychain_password="$(uuidgen)"
+
+          printf '%s' "$MACOS_CERTIFICATE_P12" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" \
+            -k "$keychain_path" \
+            -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$keychain_password" \
+            "$keychain_path"
+          security find-certificate \
+            -c "$CODE_SIGN_CERTIFICATE_NAME" \
+            -p \
+            "$keychain_path" > "$public_certificate_path"
+          security add-trusted-cert \
+            -p codeSign \
+            -r trustRoot \
+            -k "$keychain_path" \
+            "$public_certificate_path"
+          security find-identity -v -p codesigning "$keychain_path" | grep -Fq "$CODE_SIGN_IDENTITY"
+
+          echo "CODE_SIGN_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
 
       - name: Build release app bundle
         run: Scripts/build_app.sh release
@@ -43,3 +83,14 @@ jobs:
           asset="release/${APP_NAME}-macOS-release.zip"
           test -f "$asset"
           gh release upload "$RELEASE_TAG" "$asset" --clobber
+
+      - name: Remove temporary signing keychain
+        if: always()
+        run: |
+          keychain_path="$RUNNER_TEMP/startgg-signing.keychain-db"
+          if [[ -f "$keychain_path" ]]; then
+            security delete-keychain "$keychain_path" >/dev/null 2>&1 || true
+          fi
+          rm -f \
+            "$RUNNER_TEMP/startgg-signing-identity.p12" \
+            "$RUNNER_TEMP/startgg-signing-certificate.pem"
